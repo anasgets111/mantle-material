@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.4",
+  "runtime.builtin": { "os": "disable", "debug": "disable" },
+  "workspace": {
+    "library": ["/mnt/Work/0Coding/1Rust/mantle/lua-meta"],
+    "checkThirdParty": false
+  },
+  "diagnostics": {
+    "groupSeverity": { "type-check": "Warning", "unbalanced": "Warning", "strict": "Warning", "global": "Warning" },
+    "groupFileStatus": { "type-check": "Any", "unbalanced": "Any", "strict": "Any", "global": "Any" }
+  }
+}
