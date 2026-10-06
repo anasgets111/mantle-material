@@ -1,5 +1,9 @@
 # mantle-material
 
+![The demo's Feedback page: badges, progress (flat and wavy), the loading indicator and the Expressive shape library](docs/screenshot.png)
+
+![The demo's Navigation page: primary and secondary tabs and the navigation bar, with labels, icons only and short](docs/screenshot-2.png)
+
 A Material 3 (Material You, including M3 Expressive) component library for the
 [Mantle](https://github.com/anasgets111/mantle) shell engine, with a demo app that shows every
 component.
