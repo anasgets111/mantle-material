@@ -196,9 +196,10 @@ end
 ---@field on_select? fun(name: string)
 ---@field [string] "no such property"
 
+-- What `app_window` gives `window`: one app built with either library can host both in one surface.
 ---@param props m3.AppWindowProps
----@return Surface
-function M.app_window(props)
+---@return WindowProps
+function M.window_props(props)
     local id = props.id
     local own = core.merge({}, props)
     local child, barred = shared_chrome(props)
@@ -225,7 +226,7 @@ function M.app_window(props)
         on_key = function(key) return overlay.key(id, key) end,
     }
     if not client then
-        return window(core.merge(core.merge({ decorations = "server", child = root }, common), own))
+        return core.merge(core.merge({ decorations = "server", child = root }, common), own)
     end
     local state = toplevel(id):state()
     local inset = state:map(band)
@@ -234,7 +235,7 @@ function M.app_window(props)
     root.shadows = theme.shadows[3]
     local grips = resize_grips(id)
     table.insert(grips, 1, root)
-    return window(core.merge(core.merge({
+    return core.merge(core.merge({
         background = theme.CLEAR,
         decorations = "client",
         geometry_inset = inset,
@@ -244,7 +245,13 @@ function M.app_window(props)
             padding = inset,
             children = { rect { width = "fill", height = "fill", children = grips } },
         },
-    }, common), own))
+    }, common), own)
+end
+
+---@param props m3.AppWindowProps
+---@return Surface
+function M.app_window(props)
+    return window(M.window_props(props))
 end
 
 return M

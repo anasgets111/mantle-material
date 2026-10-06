@@ -14,6 +14,7 @@ return {
     core = require("m3.core"),
     -- Window (window.lua)
     app_window = window.app_window,
+    window_props = window.window_props,
     window_controls = window.window_controls,
     window_drag = window.window_drag,
     window_class = window.window_class,
