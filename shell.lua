@@ -10,19 +10,18 @@ local theme, overlay = m3.theme, m3.overlay
 -- M3's component categories, the styles they draw from and the layouts that adapt to the window.
 local DESTINATIONS = {
     { name = "Actions", icon = "touch_app", page = "demo.pages.actions" },
-    { name = "Feedback", title = "Communication", icon = "chat_bubble", page = "demo.pages.communication" },
-    { name = "Containers", title = "Containment", icon = "space_dashboard", page = "demo.pages.containment" },
+    { name = "Feedback", icon = "chat_bubble", page = "demo.pages.communication" },
+    { name = "Containers", icon = "space_dashboard", page = "demo.pages.containment" },
     { name = "Navigation", icon = "explore", page = "demo.pages.navigation" },
     { name = "Selection", icon = "check_box", page = "demo.pages.selection" },
-    { name = "Inputs", title = "Text inputs", icon = "text_fields", page = "demo.pages.text_inputs" },
+    { name = "Inputs", icon = "text_fields", page = "demo.pages.text_inputs" },
     { name = "Styles", icon = "palette", page = "demo.pages.styles" },
     { name = "Layout", icon = "devices", page = "demo.pages.layout" },
 }
-local PAGES, TITLES = {}, {}
+local PAGES = {}
 for _, entry in ipairs(DESTINATIONS) do
     entry.label = entry.name
     PAGES[entry.name] = require(entry.page)
-    TITLES[entry.name] = entry.title or entry.name
 end
 
 local page = state("m3_page", "Actions")
@@ -59,7 +58,7 @@ local layout = m3.adaptive_navigation("nav", {
         children = {
             m3.top_app_bar("app_bar", {
                 kind = "small",
-                title = page:map(function(name) return TITLES[name] end),
+                title = page,
                 window = "m3",
                 on_close = quit,
                 actions = {
