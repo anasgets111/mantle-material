@@ -6,7 +6,7 @@ local c, FADE = m3.theme.c, m3.theme.motion.fade
 local notify = m3.overlay.notify
 
 local function detail(description)
-    return m3.text(description, c.on_surface_variant, "body_medium")
+    return m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" })
 end
 
 local function caption(label)
@@ -219,16 +219,18 @@ end
 
 local shape_card = section.card("Shapes", {
     detail("M3 Expressive's shape library. Every shape shares one outline layout, so any shape morphs into any other: hover a tile to morph it, click to step to the next resting shape."),
-    row { spacing = 8, children = tiles[1] },
-    row { spacing = 8, children = tiles[2] },
+    row { width = "fill", wrap = true, spacing = 8, line_spacing = 8, children = table.move(tiles[2], 1, #tiles[2], #tiles[1] + 1, { table.unpack(tiles[1]) }) },
 })
 
 ---------------------------------------------------------------------------------------------------
 
 local snackbar = section.card("Snackbar", {
-    detail("A snackbar reports the result of an action. It carries at most one action and a close icon; long messages take two lines."),
+    detail("A snackbar reports the result of an action. It carries at most one action and a close icon; long messages take two lines. One shows at a time; the rest queue."),
     row {
         spacing = 32,
+        width = "fill",
+        wrap = true,
+        line_spacing = 16,
         children = {
             column {
                 spacing = 12,
@@ -246,6 +248,16 @@ local snackbar = section.card("Snackbar", {
                 children = {
                     caption("Live, at the bottom of the window"),
                     m3.button("snack_show", { kind = "tonal", label = "Show snackbar", on_click = function() notify("Message archived") end }),
+                    caption("Three at once: each waits for the one before"),
+                    m3.button("snack_queue", {
+                        kind = "tonal",
+                        label = "Queue three",
+                        on_click = function()
+                            notify("First message")
+                            notify("Second message, after the first", { action = "Undo" })
+                            notify("Third message, last", { close = true })
+                        end,
+                    }),
                 },
             },
         },
@@ -276,4 +288,6 @@ local tooltips = section.card("Tooltips", {
 
 ---------------------------------------------------------------------------------------------------
 
-return column { width = "fill", spacing = 16, children = { badges, progress, loading, shape_card, snackbar, tooltips } }
+local wide = section.wide
+
+return section.page { wide(badges), wide(progress), loading, shape_card, wide(snackbar), wide(tooltips) }

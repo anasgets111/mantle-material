@@ -1,7 +1,7 @@
 # Containment
 
 Cards, lists, the carousel, dividers and the modal layers. Every call is `m3.<name>(id, opts)`; `id` is unique per instance.
-Layer openers are `m3.open_<thing>(opts)`; Escape and `m3.overlay.close_all()` close them. Needs `m3.app_window`.
+Layer openers are `m3.open_<thing>(opts)`; Escape and `m3.overlay.close_all()` close them. Needs `m3.app_window`. Every opener takes `window`, the host's id (default `m3.core.window`, else the first `app_window`).
 
 | Component | What it is |
 | :--- | :--- |
@@ -90,4 +90,22 @@ m3.carousel("gallery", { items = { { image = "/a.jpg", label = "A" }, { image = 
 ```lua
 m3.open_bottom_sheet { title = "Share", items = { { icon = "link", label = "Copy link", on_click = copy } } }
 m3.open_side_sheet { title = "Settings", content = function() return { m3.text("Hi", m3.theme.c.on_surface) } end }
+```
+
+## Basic dialog: `m3.overlay.ask`
+
+`m3.overlay.ask({ icon?, title, body?, actions?, window? })` shows a basic dialog over a 32% scrim; the scrim or Escape dismisses it.
+
+| Field | Type | Default | Meaning |
+| :--- | :--- | :--- | :--- |
+| `title` | string | required | Headline |
+| `icon` | string | none | Material Symbols name; centres the title |
+| `body` | string or node | none | Supporting text, or any node; scrolls when taller than the window allows |
+| `actions` | `{ label, kind?, on_click? }[]` | Cancel | Buttons at the end of the row. `kind` is `"text"` (default), `"tonal"` or `"filled"`; each closes the dialog, then runs `on_click` |
+| `confirm` | string | none | Shorthand: adds a trailing action that runs `ask`'s second argument |
+
+```lua
+m3.overlay.ask({ icon = "delete", title = "Delete draft?", body = "It can't be restored.", actions = {
+    { label = "Keep" }, { label = "Delete", kind = "filled", on_click = delete },
+} })
 ```

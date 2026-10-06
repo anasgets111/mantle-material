@@ -1,7 +1,7 @@
 -- Modal chrome shared by the date and time pickers. Not public API.
 local theme = require("m3.theme")
 local overlay = require("m3.overlay")
-local button = require("m3.button").button
+local button = require("m3.actions.button").button
 
 local c = theme.c
 
@@ -38,7 +38,8 @@ function M.modal(id, width, padding, children)
     }
 end
 
-function M.actions(id, name, on_ok)
+-- `disabled` (signal, optional) blocks OK.
+function M.actions(id, name, on_ok, disabled)
     return row {
         width = "fill",
         align_h = "end",
@@ -49,6 +50,7 @@ function M.actions(id, name, on_ok)
             button(name .. "_ok", {
                 kind = "text",
                 label = "OK",
+                disabled = disabled,
                 on_click = function()
                     on_ok()
                     overlay.close(id)

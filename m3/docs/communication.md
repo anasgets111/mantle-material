@@ -77,7 +77,7 @@ m3.shape("blob", { name = hovered:map(function(h) return h and "sunny" or "cooki
 
 ## tooltip / rich_tooltip
 
-Wrap a control; the tip shows above it, 4px clear. Plain (24px min height, 8px sides, 4px radius, inverse surface) after 500 ms of hover; rich (320px, 16px sides, 12px radius, surface container at elevation 2, title small, body medium) after 300 ms and stays while the pointer is over it. The wrapper needs space above the control.
+Wrap a control; the tip shows above it, 4px clear. Plain (24px min height, 8px sides, 4px radius, inverse surface) after 500 ms of hover; rich (320px, 16px sides, 12px radius, surface container at elevation 2, title small, body medium) after 300 ms and stays while the pointer is over it. The tip flips below the control when the window has no room above, and slides to stay inside it.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
@@ -86,6 +86,7 @@ Wrap a control; the tip shows above it, 4px clear. Plain (24px min height, 8px s
 | `title`, `body` | string | required | Rich: heading and supporting text |
 | `action`, `on_action` | string, function | none | Rich: the action button |
 | `width`, `height` | number | 40 | The control's size |
+| `window` | string | `m3.core.window` | The window or panel it shows over |
 
 ```lua
 m3.tooltip("edit_tip", { label = "Edit", child = m3.icon_button("edit", { icon = "edit" }) })

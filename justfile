@@ -2,7 +2,7 @@
 default: lua types check
 
 lua:
-    for f in shell.lua m3/*.lua m3/internal/*.lua demo/*.lua demo/pages/*.lua; do luac5.4 -p "$f"; done
+    for f in $(find shell.lua m3 demo -name "*.lua"); do luac5.4 -p "$f"; done
 
 types:
     #!/usr/bin/env bash

@@ -2,7 +2,7 @@
 local m3 = require("m3")
 local section = require("demo.section")
 
-local c, motion = m3.theme.c, m3.theme.motion
+local c = m3.theme.c
 local notify = m3.overlay.notify
 
 local function caption(label)
@@ -10,11 +10,11 @@ local function caption(label)
 end
 
 local function detail(description)
-    return m3.text(description, c.on_surface_variant, "body_medium")
+    return m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" })
 end
 
 local function line(children, spacing)
-    return row { spacing = spacing or 12, children = children }
+    return row { width = "fill", wrap = true, spacing = spacing or 12, line_spacing = 12, children = children }
 end
 
 local function toggle(name, default)
@@ -55,7 +55,7 @@ for _, kind in ipairs({ "filled", "tonal", "elevated", "outlined" }) do
     })
 end
 
-local common = section.card("Common buttons", {
+local common = section.wide(section.card("Common buttons", {
     detail("Buttons start an action. Five emphasis levels, five Expressive sizes, round or square, and each one's corners spring smaller while pressed."),
     line(buttons("btn_", {})),
     line(buttons("btn_icon_", { icon = "add" })),
@@ -68,7 +68,7 @@ local common = section.card("Common buttons", {
     }),
     caption("Toggle buttons: selecting morphs round to square"),
     line(toggle_buttons),
-}, on_page)
+}, on_page))
 
 ---------------------------------------------------------------------------------------------------
 
@@ -81,9 +81,14 @@ for _, kind in ipairs({ "standard", "filled", "tonal", "outlined" }) do
         kind = kind, icon = "favorite", value = selected,
     })
 end
-local icon_sizes = {}
-for _, size in ipairs({ "xs", "s", "m", "l" }) do
+local icon_sizes, icon_widths = {}, {}
+for _, size in ipairs({ "xs", "s", "m", "l", "xl" }) do
     icon_sizes[#icon_sizes + 1] = m3.icon_button("ibs_" .. size, { kind = "tonal", size = size, icon = "star", props = { align_v = "center" } })
+    for _, width in ipairs({ "narrow", "default", "wide" }) do
+        if size == "s" or size == "m" then
+            icon_widths[#icon_widths + 1] = m3.icon_button("ibw_" .. size .. width, { kind = "filled", size = size, width = width, icon = "star", value = toggle("ibw_" .. size .. width), props = { align_v = "center" } })
+        end
+    end
 end
 
 local icons = section.card("Icon buttons", {
@@ -91,8 +96,10 @@ local icons = section.card("Icon buttons", {
     line(icon_kinds),
     caption("Toggle: favourite on and off"),
     line(icon_toggles),
-    caption("Sizes: XS, S, M, L"),
+    caption("Sizes: XS, S, M, L, XL"),
     line(icon_sizes),
+    caption("Widths: narrow, default and wide, on S then M; each toggles"),
+    line(icon_widths, 8),
 })
 
 ---------------------------------------------------------------------------------------------------
@@ -100,9 +107,9 @@ local icons = section.card("Icon buttons", {
 local expanded = toggle("efab", true)
 local menu_open = toggle("fab_menu")
 
-local fabs = section.card("Floating action buttons", {
+local fabs = section.wide(section.card("Floating action buttons", {
     detail("A FAB promotes the screen's main action. Extended collapses to a FAB; the FAB menu opens a list of related actions."),
-    row {
+    row { wrap = true, line_spacing = 24,
         width = "fill",
         spacing = 32,
         children = {
@@ -151,26 +158,27 @@ local fabs = section.card("Floating action buttons", {
             },
         },
     },
-})
+}))
 
 ---------------------------------------------------------------------------------------------------
 
 local pick_a = state("m3_a_connected_a", 1)
 local pick_b = state("m3_a_connected_b", 2)
 
-local groups = section.card("Button groups", {
+local groups = section.wide(section.card("Button groups", {
     detail("Groups gather related actions. In a standard group the neighbours of a pressed button squish; a connected group is one selection whose chosen item turns fully round."),
     caption("Standard: press and hold a button"),
     m3.button_group("grp_filled", {
         kind = "standard",
         items = { { label = "Day", icon = "light_mode" }, { label = "Week", icon = "calendar_view_week" }, { label = "Month", icon = "calendar_month" } },
     }),
+    caption("Standard and connected groups: Tab in, then the arrows, Home and End move between buttons"),
     caption("Connected"),
     line({
         m3.button_group("grp_c_filled", { kind = "connected", button_kind = "filled", items = { { label = "Walk" }, { label = "Cycle" }, { label = "Drive" } }, value = pick_a }),
         m3.button_group("grp_c_outlined", { kind = "connected", button_kind = "outlined", items = { { label = "Small" }, { label = "Medium" }, { label = "Large" } }, value = pick_b }),
     }, 32),
-})
+}))
 
 ---------------------------------------------------------------------------------------------------
 
@@ -186,21 +194,36 @@ for i, kind in ipairs({ "filled", "tonal", "elevated", "outlined" }) do
     })
 end
 
-local split = section.card("Split buttons", {
+local split = section.wide(section.card("Split buttons", {
     detail("A split button pairs a primary action with a menu of alternatives. The chevron turns over and its button rounds while the menu is open."),
     line(splits, 24),
-}, on_page)
+}, on_page))
 
 ---------------------------------------------------------------------------------------------------
 
 local view = state("m3_a_view", "Day")
 local features = state("m3_a_features", "Wi-Fi")
+local styles = state("m3_a_styles", { Bold = true })
+local align = state("m3_a_align", "left")
 
 local segmented = section.card("Segmented buttons", {
     detail("A segmented button is one outlined control of two to five choices; the selected one is tinted and checked."),
     m3.segmented_button("seg_view", { options = { "Day", "Week", "Month" }, value = view, width = 96 }),
     caption("Four options"),
     m3.segmented_button("seg_features", { options = { "Wi-Fi", "Bluetooth", "NFC", "VPN" }, value = features, width = 96 }),
+    caption("Multi-select, icon only: any number can be on"),
+    m3.segmented_button("seg_styles", {
+        multi = true,
+        options = { { icon = "format_bold", name = "Bold" }, { icon = "format_italic", name = "Italic" }, { icon = "format_underlined", name = "Underline" } },
+        value = styles,
+    }),
+    caption("Icon and label, single choice"),
+    m3.segmented_button("seg_align", {
+        options = { { icon = "format_align_left", label = "Left", name = "left" }, { icon = "format_align_center", label = "Centre", name = "centre" }, { icon = "format_align_right", label = "Right", name = "right" } },
+        value = align,
+        width = 104,
+    }),
+    caption("Arrow keys, Home and End move focus between segments"),
 })
 
-return column { width = "fill", spacing = 16, children = { common, icons, fabs, groups, split, segmented } }
+return section.page { common, icons, fabs, groups, split, segmented }

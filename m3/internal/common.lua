@@ -33,6 +33,23 @@ function M.signal(id, v)
     return v
 end
 
+-- True while `scroll` is moving down (away from the top), false on a move up or back at the top:
+-- what hides a floating toolbar and collapses an extended FAB.
+---@param scroll Signal<number>
+---@return Signal<boolean>
+function M.scrolled_down(scroll)
+    local last, away = 0, false
+    return scroll:map(function(s)
+        if s <= 0 or s < last - 1 then
+            away = false
+        elseif s > last + 1 then
+            away = true
+        end
+        last = s
+        return away
+    end)
+end
+
 -- A cover-fit image that loads off the main thread.
 function M.photo(source, props)
     return image(core.merge({ source = source, async = true, fit = "cover" }, props))

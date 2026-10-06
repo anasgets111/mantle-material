@@ -6,16 +6,11 @@ local contacts_data = require("demo.contacts")
 local c, FADE = m3.theme.c, m3.theme.motion.fade
 local notify = m3.overlay.notify
 
-local WALLS = "/mnt/Work/1Wallpapers/Main/"
+local WALLS = mantle.config_dir .. "/demo/wallpapers/"
 local PHOTOS = {
-    { WALLS .. "landscape_mountain.jpeg", "Mountain pass" },
-    { WALLS .. "wanderer.jpg", "The wanderer" },
-    { WALLS .. "evening_reflections.jpg", "Evening reflections" },
-    { WALLS .. "voyager-16.jpg", "Voyager" },
-    { WALLS .. "dominik-mayer-21.jpg", "Blue hour" },
-    { WALLS .. "cabin-4.png", "Cabin" },
-    { WALLS .. "clouds-2.png", "Above the clouds" },
-    { WALLS .. "dominik-mayer-5.jpg", "Quiet town" },
+    { WALLS .. "dusk.svg", "Dusk" },
+    { WALLS .. "ember.svg", "Ember" },
+    { WALLS .. "tide.svg", "Tide" },
 }
 local slides = {}
 for i, photo in ipairs(PHOTOS) do
@@ -31,10 +26,13 @@ local function contact_row(person)
     })
 end
 
-local function block(title, description, children)
-    table.insert(children, 1, m3.text(description, c.on_surface_variant, "body_medium"))
-    return section.card(title, children)
+local function block(title, description, children, wide)
+    table.insert(children, 1, m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" }))
+    local node = section.card(title, children)
+    return wide and section.wide(node) or node
 end
+
+local WIDE = true
 
 -- A list-item variant in an outlined box, captioned by what it shows.
 local function variant(caption, items)
@@ -59,6 +57,7 @@ end
 
 local function rule(id) return m3.divider(id, { kind = "inset" }) end
 local TEXT3 = "Supporting text that runs long enough to wrap onto a second line of the item."
+
 
 local function trigger(id, label, icon_name, on_click)
     return m3.button(id, { kind = "tonal", label = label, icon = icon_name, on_click = on_click })
@@ -107,134 +106,173 @@ local function share_item(icon_name, label)
     return { icon = icon_name, label = label, on_click = function() notify(label) end }
 end
 
-return column {
-    width = "fill",
-    spacing = 16,
-    children = {
-        block("Lists", "Rows of related text and actions. Search filters; delete asks first.", {
-            m3.search_bar("contacts_search", { kind = "inline", placeholder = "Search contacts", on_change = function(text) contacts_data.query:set(text) end }),
-            rect {
-                width = "fill",
-                radius = 12,
-                clip = "rounded",
-                background = c.surface,
-                animate = { background = FADE },
-                children = {
-                    m3.list("contacts", { height = 432, source = contacts_data.shown, key = function(person) return person.name end, item = contact_row }),
-                },
-            },
-        }),
-        block("List items", "One, two or three lines, with a leading icon, avatar or image and a trailing text, checkbox or switch.", {
-            row {
-                width = "fill",
-                spacing = 16,
-                children = {
-                    column {
-                        width = "fill",
-                        spacing = 16,
-                        children = {
-                            variant("One line, icon and text", {
-                                m3.list_item("li_one", { lines = { "Inbox" }, leading = { icon = "inbox" }, trailing = { text = "24" } }),
-                                rule("li_rule1"),
-                                m3.list_item("li_one2", { lines = { "Starred" }, leading = { icon = "star" }, trailing = { text = "3" } }),
-                            }),
-                            variant("Two lines, avatar and checkbox", {
-                                m3.list_item("li_two", { lines = { "Ada Lovelace", "Analytical Engine notes" }, leading = { avatar = "A" }, trailing = { checkbox = true } }),
-                                rule("li_rule2"),
-                                m3.list_item("li_two2", { lines = { "Alan Turing", "Computable numbers" }, leading = { avatar = "A" }, trailing = { checkbox = true } }),
-                            }),
-                        },
-                    },
-                    column {
-                        width = "fill",
-                        spacing = 16,
-                        children = {
-                            variant("Three lines, image and text", {
-                                m3.list_item("li_three", { lines = { "Mountain pass", TEXT3, "Shot at dawn." }, leading = { image = PHOTOS[1][1] }, trailing = { text = "2 h" } }),
-                                rule("li_rule3"),
-                                m3.list_item("li_three2", { lines = { "The wanderer", TEXT3, "Taken in autumn." }, leading = { image = PHOTOS[2][1] }, trailing = { text = "1 d" } }),
-                            }),
-                            variant("Two lines, icon and switch", {
-                                m3.list_item("li_sw", { lines = { "Do not disturb", "Silence calls and alerts" }, leading = { icon = "do_not_disturb_on" }, trailing = { switch = true } }),
-                            }),
-                        },
-                    },
-                },
-            },
-        }),
-        block("Cards", "Elevated, filled and outlined containers for one subject. Hover lifts them; press adds a state layer.", {
-            row {
-                width = "fill",
-                spacing = 16,
-                children = {
-                    photo_card("elevated", 3, "Voyager", "Deep space", "A lone probe on the edge of the solar system, still sending."),
-                    photo_card("filled", 5, "Blue hour", "Twilight", "The quiet window between sunset and night when everything turns blue."),
-                    photo_card("outlined", 6, "Cabin", "Winter retreat", "Smoke from the chimney, a path through fresh snow and nobody around."),
-                },
-            },
-        }),
-        block("Carousel", "Multi-browse: large, medium and small items reflow continuously as the wheel scrolls.", {
-            m3.carousel("carousel", { items = slides }),
-        }),
-        row {
+local share_items = { share_item("link", "Copy link"), share_item("mail", "Send by email"), share_item("bookmark", "Save to collection"), share_item("print", "Print") }
+
+return section.page {
+    block("Lists", "Rows of related text and actions. Search filters; delete asks first.", {
+        m3.search_bar("contacts_search", { kind = "inline", placeholder = "Search contacts", on_change = function(text) contacts_data.query:set(text) end }),
+        rect {
             width = "fill",
-            spacing = 16,
+            radius = 12,
+            clip = "rounded",
+            background = c.surface,
+            animate = { background = FADE },
             children = {
-                block("Bottom sheet", "Modal: slides up over a scrim. Drag the handle down, tap outside or press Escape.", {
-                    trigger("open_bottom", "Show bottom sheet", "vertical_align_bottom", function()
-                        m3.open_bottom_sheet {
-                            title = "Share with",
-                            items = { share_item("link", "Copy link"), share_item("mail", "Send by email"), share_item("bookmark", "Save to collection"), share_item("print", "Print") },
-                        }
-                    end),
-                }),
-                block("Side sheet", "Modal: slides in from the right for secondary content.", {
-                    trigger("open_side", "Show side sheet", "right_panel_open", function()
-                        m3.open_side_sheet { title = "Library settings", content = side_content, on_confirm = function() notify("Settings saved") end }
-                    end),
-                }),
+                m3.list("contacts", { height = 432, source = contacts_data.shown, query = contacts_data.query, search = function(person) return person.name .. " " .. person.detail end, key = function(person) return person.name end, item = contact_row }),
             },
         },
+    }),
+    block("List items", "One, two or three lines, with a leading icon, avatar or image and a trailing text, checkbox or switch.", {
         row {
             width = "fill",
             spacing = 16,
             children = {
-                block("Dialogs", "Basic dialog for a decision; full-screen dialog for a task that needs the whole window.", {
-                    row {
-                        spacing = 8,
-                        children = {
-                            trigger("open_dialog", "Basic dialog", "chat", function()
-                                m3.overlay.ask({ icon = "delete", title = "Discard draft?", body = "Your draft and its attachments will be deleted.", confirm = "Discard" }, function() notify("Draft discarded") end)
-                            end),
-                            trigger("open_fs", "Full-screen dialog", "fullscreen", function()
-                                m3.open_fullscreen_dialog { title = "New event", content = event_content, on_confirm = function() notify("Event saved") end }
-                            end),
-                        },
+                column {
+                    width = "fill",
+                    spacing = 16,
+                    children = {
+                        variant("One line, icon and text", {
+                            m3.list_item("li_one", { lines = { "Inbox" }, leading = { icon = "inbox" }, trailing = { text = "24" } }),
+                            rule("li_rule1"),
+                            m3.list_item("li_one2", { lines = { "Starred" }, leading = { icon = "star" }, trailing = { text = "3" } }),
+                        }),
+                        variant("Two lines, avatar and checkbox", {
+                            m3.list_item("li_two", { lines = { "Ada Lovelace", "Analytical Engine notes" }, leading = { avatar = "A" }, trailing = { checkbox = true } }),
+                            rule("li_rule2"),
+                            m3.list_item("li_two2", { lines = { "Alan Turing", "Computable numbers" }, leading = { avatar = "A" }, trailing = { checkbox = true } }),
+                        }),
                     },
+                },
+                column {
+                    width = "fill",
+                    spacing = 16,
+                    children = {
+                        variant("Three lines, image and text", {
+                            m3.list_item("li_three", { lines = { "Mountain pass", TEXT3, "Shot at dawn." }, leading = { image = PHOTOS[1][1] }, trailing = { text = "2 h" } }),
+                            rule("li_rule3"),
+                            m3.list_item("li_three2", { lines = { "The wanderer", TEXT3, "Taken in autumn." }, leading = { image = PHOTOS[2][1] }, trailing = { text = "1 d" } }),
+                        }),
+                        variant("Two lines, icon and switch", {
+                            m3.list_item("li_sw", { lines = { "Do not disturb", "Silence calls and alerts" }, leading = { icon = "do_not_disturb_on" }, trailing = { switch = true } }),
+                        }),
+                    },
+                },
+            },
+        },
+    }, WIDE),
+    block("Segmented and selectable lists", "Rows as separate rounded segments, the ends rounder. Click a row to select it; Tab in, then the arrows, Home and End move focus.", {
+        row {
+            width = "fill",
+            spacing = 16,
+            children = {
+                variant("Selectable", {
+                    m3.item_list("il_plain", {
+                        value = state("m3_demo_il_plain", "inbox"),
+                        items = {
+                            { key = "inbox", lines = { "Inbox" }, leading = { icon = "inbox" }, trailing = { text = "24" } },
+                            { key = "starred", lines = { "Starred" }, leading = { icon = "star" }, trailing = { text = "3" } },
+                            { key = "sent", lines = { "Sent" }, leading = { icon = "send" } },
+                        },
+                    }),
                 }),
-                block("Dividers", "A 1px line that groups content: full width or inset, horizontal or vertical.", {
-                    column {
-                        width = "fill",
-                        spacing = 12,
-                        children = {
-                            m3.divider("div_full"),
-                            m3.divider("div_inset", { kind = "inset" }),
-                            row {
-                                width = "fill",
-                                height = 56,
-                                spacing = 16,
-                                children = {
-                                    m3.text("Full", c.on_surface, "body_medium"),
-                                    m3.divider("div_vfull", { vertical = true }),
-                                    m3.text("Inset", c.on_surface, "body_medium"),
-                                    m3.divider("div_vinset", { kind = "inset", vertical = true }),
-                                    m3.text("Text", c.on_surface, "body_medium"),
-                                },
+                column {
+                    width = "fill",
+                    spacing = 8,
+                    children = {
+                        m3.text("Segmented", c.on_surface_variant, "label_large"),
+                        m3.item_list("il_seg", {
+                            segmented = true,
+                            value = state("m3_demo_il_seg", "ada"),
+                            items = {
+                                { key = "ada", lines = { "Ada Lovelace", "Analytical Engine notes" }, leading = { avatar = "A" } },
+                                { key = "alan", lines = { "Alan Turing", "Computable numbers" }, leading = { avatar = "A" } },
+                                { key = "grace", lines = { "Grace Hopper", "COBOL and the first compiler" }, leading = { avatar = "G" } },
                             },
-                        },
+                        }),
                     },
-                }),
+                },
             },
         },
-    },
+    }, WIDE),
+    block("Cards", "Elevated, filled and outlined containers for one subject. Hover lifts them; press adds a state layer.", {
+        row {
+            width = "fill",
+            spacing = 16,
+            children = {
+                photo_card("elevated", 1, "Voyager", "Deep space", "A lone probe on the edge of the solar system, still sending."),
+                photo_card("filled", 2, "Blue hour", "Twilight", "The quiet window between sunset and night when everything turns blue."),
+                photo_card("outlined", 3, "Cabin", "Winter retreat", "Smoke from the chimney, a path through fresh snow and nobody around."),
+            },
+        },
+    }, WIDE),
+    block("Carousel", "Multi-browse: large, medium and small items reflow continuously as the wheel scrolls.", {
+        m3.carousel("carousel", { items = slides }),
+        m3.text("Hero: one large item with two small ones beside it", c.on_surface_variant, "label_large"),
+        m3.carousel("carousel_hero", { items = slides, layout = "hero" }),
+        m3.text("Uncontained: fixed-width items that scroll off the edge", c.on_surface_variant, "label_large"),
+        m3.carousel("carousel_free", { items = slides, layout = "uncontained", height = 160 }),
+        m3.text("Full screen: one full-width item at a time, scrolled vertically", c.on_surface_variant, "label_large"),
+        m3.carousel("carousel_full", { items = slides, layout = "full_screen", height = 200 }),
+    }, WIDE),
+    block("Bottom sheet", "Modal: slides up over a scrim. Standard: no scrim, the page stays live. Drag the handle down past a third of the way or fling it to close; a short drag springs back. Escape closes either.", {
+        row {
+            spacing = 8,
+            children = {
+                trigger("open_bottom", "Modal bottom sheet", "vertical_align_bottom", function()
+                    m3.open_bottom_sheet { title = "Share with", items = share_items }
+                end),
+                trigger("open_bottom_std", "Standard bottom sheet", "bottom_sheets", function()
+                    m3.open_bottom_sheet { title = "Share with", modal = false, items = share_items }
+                end),
+            },
+        },
+    }),
+    block("Side sheet", "Modal: slides in from the right over a scrim. Standard: no scrim, the page stays live.", {
+        row {
+            spacing = 8,
+            children = {
+                trigger("open_side", "Modal side sheet", "right_panel_open", function()
+                    m3.open_side_sheet { title = "Library settings", content = side_content, on_confirm = function() notify("Settings saved") end }
+                end),
+                trigger("open_side_std", "Standard side sheet", "side_navigation", function()
+                    m3.open_side_sheet { title = "Library settings", modal = false, content = side_content, on_confirm = function() notify("Settings saved") end }
+                end),
+            },
+        },
+    }),
+    block("Dialogs", "Basic dialog for a decision; full-screen dialog for a task that needs the whole window.", {
+        row {
+            spacing = 8,
+            children = {
+                trigger("open_dialog", "Basic dialog", "chat", function()
+                    m3.overlay.ask({ icon = "delete", title = "Discard draft?", body = "Your draft and its attachments will be deleted.", confirm = "Discard" }, function() notify("Draft discarded") end)
+                end),
+                trigger("open_fs", "Full-screen dialog", "fullscreen", function()
+                    m3.open_fullscreen_dialog { title = "New event", content = event_content, on_confirm = function() notify("Event saved") end }
+                end),
+            },
+        },
+    }),
+    block("Dividers", "A 1px line that groups content: full width or inset, horizontal or vertical.", {
+        column {
+            width = "fill",
+            spacing = 12,
+            children = {
+                m3.divider("div_full"),
+                m3.divider("div_inset", { kind = "inset" }),
+                row {
+                    width = "fill",
+                    height = 56,
+                    spacing = 16,
+                    children = {
+                        m3.text("Full", c.on_surface, "body_medium"),
+                        m3.divider("div_vfull", { vertical = true }),
+                        m3.text("Inset", c.on_surface, "body_medium"),
+                        m3.divider("div_vinset", { kind = "inset", vertical = true }),
+                        m3.text("Text", c.on_surface, "body_medium"),
+                    },
+                },
+            },
+        },
+    }),
 }

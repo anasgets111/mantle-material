@@ -102,6 +102,9 @@ local cache = {}
 
 -- Closed commands of `name` fitting a `size` box: a Catmull-Rom spline through the N points,
 -- as N cubic segments. `rotate` is in degrees clockwise.
+---@param name string One of `shapes.NAMES`.
+---@param size number Box edge in px.
+---@return table[] Path commands for a node's `commands`.
 function M.commands(name, size)
     local key = name .. size
     if cache[key] then

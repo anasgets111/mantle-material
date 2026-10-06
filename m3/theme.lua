@@ -1,5 +1,5 @@
--- Live M3 tokens: the engine's `palette.scheme` turns the seed, mode and variant states into the
--- M3 roles, and `c.<role>` is a signal of one role, so every node bound to it recolours in place.
+-- Live M3 tokens: the engine's `palette.scheme` turns the seed, appearance, variant and contrast
+-- (each following the desktop unless set) into the M3 roles, and `c.<role>` is a signal of one role, so every node bound to it recolours in place.
 local M = {}
 
 M.SEEDS = {
@@ -12,13 +12,57 @@ M.SEEDS = {
 }
 M.VARIANTS = { "tonal_spot", "vibrant", "expressive", "fidelity", "monochrome" }
 
-M.seed = state("m3_seed_color", "#6750A4")
-M.dark = state("m3_dark", true)
+-- The app's choices; "system" follows the desktop's settings (`mantle.appearance`, the portal's).
+---@type StateSignal<string> A "#RRGGBB" seed, or "system" for the desktop's accent (else the first of `SEEDS`).
+M.seed = state("m3_seed_color", "system")
+---@type StateSignal<"system"|"light"|"dark">
+M.appearance = state("m3_appearance", "system")
+---@type StateSignal<"tonal_spot"|"vibrant"|"expressive"|"fidelity"|"monochrome">
 M.variant = state("m3_variant", "tonal_spot")
+---@type StateSignal<"system"|number> "system" or -1..1: M3's contrast levels (-1 reduced, 0 standard, 0.5 medium, 1 high).
+M.contrast = state("m3_contrast", "system")
 
-M.scheme = computed({ M.seed, M.dark, M.variant }, function(seed, dark, variant)
-    return palette.scheme(seed or M.SEEDS[1].color, { dark = dark ~= false, variant = variant })
+-- Whether the colours are dark: the choice, else the desktop's preference (none is light).
+---@type Signal<boolean>
+M.dark = computed({ M.appearance, mantle.appearance }, function(choice, sys)
+    if choice == "light" or choice == "dark" then
+        return choice == "dark"
+    end
+    return sys ~= nil and sys.color_scheme == "dark"
 end)
+---@type Signal<boolean>
+M.reduced_motion = mantle.appearance:map(function(sys) return sys ~= nil and sys.reduced_motion == true end)
+
+-- Built once per combination: a scheme change re-reads every role, so it must stay cheap.
+local schemes = {}
+M.scheme = computed({ M.seed, M.dark, M.variant, M.contrast, mantle.appearance }, function(seed, dark, variant, contrast, sys)
+    if seed == "system" then
+        local accent = sys and sys.accent
+        seed = accent and accent:match("^#%x%x%x%x%x%x$") and accent or M.SEEDS[1].color
+    end
+    if contrast == "system" then
+        contrast = sys and sys.contrast == "high" and 1 or 0
+    end
+    local key = ("%s|%s|%s|%s"):format(seed, tostring(dark), variant, contrast)
+    schemes[key] = schemes[key] or palette.scheme(seed, { dark = dark, variant = variant, contrast = contrast })
+    return schemes[key]
+end)
+
+-- Flips light and dark from what shows now.
+function M.toggle_dark()
+    M.appearance:set(M.dark:get() and "light" or "dark")
+end
+
+-- The next of `SEEDS` after the current one (the first when it is none of them).
+function M.next_seed()
+    local at = 0
+    for i, seed in ipairs(M.SEEDS) do
+        if seed.color == M.seed:get() then
+            at = i
+        end
+    end
+    M.seed:set(M.SEEDS[at % #M.SEEDS + 1].color)
+end
 
 M.c = setmetatable({}, {
     __index = function(roles, role)
@@ -29,6 +73,10 @@ M.c = setmetatable({}, {
 })
 
 -- A role chosen by a boolean signal: `pick(on, "primary", "outline")`.
+---@param flag Signal<boolean>
+---@param yes string Colour role when `flag` is true.
+---@param no string Colour role otherwise.
+---@return Signal<string>
 function M.pick(flag, yes, no)
     return computed({ flag, M.scheme }, function(on, scheme)
         return scheme[on and yes or no] or yes
@@ -37,7 +85,7 @@ end
 
 M.CLEAR = "#00000000"
 
--- M3 type scale: { role, size, line height, weight, tracking }, and `M.type[role]` as
+-- M3 type scale (the 15 styles, then their `_emphasized` variants): { role, size, line height, weight, tracking }, and `M.type[role]` as
 -- { size, weight, line height, tracking }.
 M.type = {}
 M.TYPE_SCALE = {
@@ -47,23 +95,39 @@ M.TYPE_SCALE = {
     { "body_large", 16, 24, 400, 0.5 }, { "body_medium", 14, 20, 400, 0.25 }, { "body_small", 12, 16, 400, 0.4 },
     { "label_large", 14, 20, 500, 0.1 }, { "label_medium", 12, 16, 500, 0.5 }, { "label_small", 11, 16, 500, 0.5 },
 }
+-- M3 Expressive's emphasized variant of each style: the same size, line height and tracking, heavier.
+-- not in the spec: the weights are Compose's emphasized tokens as recalled, 500 for display, headline,
+-- title large and body, 700 for title medium and small and the labels.
+local EMPHASIZED = { title_medium = 700, title_small = 700, label_large = 700, label_medium = 700, label_small = 700 }
+for i = 1, #M.TYPE_SCALE do
+    local s = M.TYPE_SCALE[i]
+    M.TYPE_SCALE[#M.TYPE_SCALE + 1] = { s[1] .. "_emphasized", s[2], s[3], EMPHASIZED[s[1]] or 500, s[5] }
+end
 for _, style in ipairs(M.TYPE_SCALE) do
     M.type[style[1]] = { style[2], style[4], style[3], style[5] }
 end
 
 -- M3 Expressive motion scheme: springs from the Compose tokens, damping = ratio * 2 * sqrt(stiffness).
-local function spring(stiffness, ratio)
-    return { spring = { stiffness = stiffness, damping = ratio * 2 * math.sqrt(stiffness) } }
+-- Reduced motion swaps every spring for a quick critically damped one (not in the spec): the entry's
+-- `spring` is a signal, so it can't be read with `.stiffness`; `M.springs` has the plain numbers.
+local QUICK = { stiffness = 2500, damping = 100 }
+M.springs = {}
+local function spring(name, stiffness, ratio)
+    local own = { stiffness = stiffness, damping = ratio * 2 * math.sqrt(stiffness) }
+    M.springs[name] = own
+    return { spring = M.reduced_motion:map(function(reduced) return reduced and QUICK or own end) }
 end
 M.motion = {
-    spatial_fast = spring(800, 0.6),
-    spatial = spring(380, 0.8),
-    spatial_slow = spring(200, 0.8),
-    effects_fast = spring(3800, 1),
-    effects = spring(1600, 1),
-    effects_slow = spring(800, 1),
+    spatial_fast = spring("spatial_fast", 800, 0.6),
+    spatial = spring("spatial", 380, 0.8),
+    spatial_slow = spring("spatial_slow", 200, 0.8),
+    effects_fast = spring("effects_fast", 3800, 1),
+    effects = spring("effects", 1600, 1),
+    effects_slow = spring("effects_slow", 800, 1),
     fade = { duration = 300, easing = "in_out_quad" },
 }
+-- Wheel notches glide on a critically damped spring: Expressive spatial springs overshoot.
+M.motion.scroll = M.motion.effects
 
 -- M3 easing tokens, as CSS cubic-beziers.
 M.easing = {
@@ -75,6 +139,9 @@ M.easing = {
 }
 
 -- `color` at `alpha` (0..1), for M3's scrim and state-layer opacities.
+---@param color string "#RRGGBB[AA]"
+---@param alpha number 0..1
+---@return string
 function M.alpha(color, alpha)
     return color:sub(1, 7) .. string.format("%02X", math.floor(alpha * 255 + 0.5))
 end

@@ -32,47 +32,32 @@ local everyone = added:map(function(extra)
     return people
 end)
 
-M.shown = computed({ M.query, removed, everyone }, function(q, gone, people_in_order)
-    local hits = {}
-    for i, person in ipairs(people_in_order) do
-        local score = not (gone or {})[person.name] and fuzzy(person.name .. " " .. person.detail, q or "")
-        if score then
-            hits[#hits + 1] = { person = person, score = score, index = i }
+-- Everyone not deleted, in name order; the list filters it by `M.query`.
+M.shown = computed({ removed, everyone }, function(gone, people)
+    local kept = {}
+    for _, person in ipairs(people) do
+        if not (gone or {})[person.name] then
+            kept[#kept + 1] = person
         end
     end
-    -- Best match first; ties keep the alphabetical order (`table.sort` is not stable).
-    table.sort(hits, function(a, b)
-        if a.score ~= b.score then
-            return a.score > b.score
-        end
-        return a.index < b.index
-    end)
-    local people = {}
-    for i, hit in ipairs(hits) do
-        people[i] = hit.person
-    end
-    return people
+    return kept
 end)
 
+-- The deleted set without `key`.
+local function without(key)
+    local gone = {}
+    for k, v in pairs(removed:get() or {}) do
+        gone[k] = k ~= key and v or nil
+    end
+    return gone
+end
+
 function M.remove(person)
-    overlay.ask({ icon = "delete", title = "Delete contact?", body = person.name .. " will be removed from your contacts.", confirm = "Delete" }, function()
-        local gone = {}
-        for k, v in pairs(removed:get() or {}) do
-            gone[k] = v
-        end
+    overlay.confirm_remove({ title = "Delete contact?", body = person.name .. " will be removed from your contacts.", message = person.name .. " deleted" }, function()
+        local gone = without()
         gone[person.name] = true
         removed:set(gone)
-        overlay.notify(person.name .. " deleted", {
-            action = "Undo",
-            on_action = function()
-                local back = {}
-                for k, v in pairs(removed:get() or {}) do
-                    back[k] = k ~= person.name and v or nil
-                end
-                removed:set(back)
-            end,
-        })
-    end)
+    end, function() removed:set(without(person.name)) end)
 end
 
 function M.restore()
@@ -102,12 +87,7 @@ function M.add(name, email, note)
     local extra = { table.unpack(added:get() or {}) }
     extra[#extra + 1] = { name = name, detail = note ~= "" and note or email ~= "" and email or "New contact" }
     added:set(extra)
-    -- A saved name deleted earlier comes back.
-    local gone = {}
-    for k, v in pairs(removed:get() or {}) do
-        gone[k] = k ~= name and v or nil
-    end
-    removed:set(gone)
+    removed:set(without(name)) -- a saved name deleted earlier comes back
 end
 
 return M

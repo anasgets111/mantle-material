@@ -4,12 +4,30 @@ local theme = require("m3.theme")
 
 local FADE = theme.motion.fade
 
+---@alias m3.Size "xs"|"s"|"m"|"l"|"xl"
+
 local M = {}
+
+-- The window or panel id that layers open over when an opener gets no `window`; default the first
+-- window `app_window` built. Set it to the app window's id in a multi-window app.
+---@type string?
+M.window = nil
+
+-- The scroll ease for a user's scroll column: `animate = { scroll = m3.scroll_ease() }` glides wheel
+-- notches on a critically damped spring (quick under reduced motion); Expressive spatial springs overshoot.
+---@return table
+function M.scroll_ease()
+    return theme.motion.scroll
+end
 
 local RIPPLE_MS = 450
 local HOVER, FOCUS, PRESSED = 0.08, 0.10, 0.10
 
 -- Copies `from`'s fields onto `into`; components use it to let `opts` override their defaults.
+---@generic T: table
+---@param into T
+---@param from? table
+---@return T
 function M.merge(into, from)
     for k, v in pairs(from or {}) do
         into[k] = v
@@ -18,6 +36,11 @@ function M.merge(into, from)
 end
 local merge = M.merge
 
+---@param content string|Signal<string>
+---@param color string|Signal<string>
+---@param style? string A `theme.type` key; default "body_medium".
+---@param props? table
+---@return Node
 function M.text(content, color, style, props)
     local t = theme.type[style or "body_medium"]
     return text(merge({
@@ -34,6 +57,11 @@ end
 
 -- Icons are Material Symbols, M3's own icon font: `name` is the symbol's ligature, e.g. "star".
 -- `props.filled` (boolean or signal) switches to the filled style through the FILL axis.
+---@param name string|Signal<string>
+---@param color string|Signal<string>
+---@param size? number Default 24.
+---@param props? table
+---@return Node
 function M.icon(name, color, size, props)
     props = props or {}
     local function axes(filled)
@@ -52,8 +80,58 @@ function M.icon(name, color, size, props)
     }, props))
 end
 
+-- M3's focus indicator on a node that takes Tab focus: a 3dp `secondary` ring while keyboard focus is
+-- on it (`focus_visible`), as `shadows` layers over the node's own `props.shadows`.
+-- not in the spec: the ring hugs the shape. Engine gap: a shadow layer can only paint, not erase, so no layer
+-- stack leaves the spec's 2dp gap clear on any background; it needs an outline offset or an erasing blend.
+---@param name string
+---@param props table
+function M.focusable(name, props)
+    local base = props.shadows
+    local inputs = { focus_visible("m3_fv_" .. name), theme.scheme, type(base) == "userdata" and base or nil }
+    local fixed = type(base) == "table" and base or {}
+    props.focus_visible = inputs[1]
+    props.focus_ring = false
+    props.shadows = computed(inputs, function(on, s, own)
+        local list = own or fixed
+        return on and { { color = s.secondary, spread = 3 }, table.unpack(list) } or list
+    end)
+end
+
+-- Dims a node to M3's 38% and stops it taking the pointer while `props.disabled` (a boolean or a
+-- signal) is true. The field is consumed: nodes reject unknown ones.
+---@param props table
+function M.disable(props)
+    local off = props.disabled
+    props.disabled = nil
+    if off == nil then
+        return
+    end
+    local function look(d) return d and 0.38 or 1 end
+    local function live(d) return not d end
+    props.opacity = type(off) == "userdata" and off:map(look) or look(off)
+    props.hittable = type(off) == "userdata" and off:map(live) or live(off)
+    -- `hittable` stops the pointer only; keyboard activation reaches the handlers, so they check too.
+    local function disabled() return off == true or type(off) == "userdata" and off:get() end
+    for _, handler in ipairs({ "on_click", "on_key" }) do
+        local run = props[handler]
+        if run then
+            props[handler] = function(...)
+                if not disabled() then
+                    return run(...)
+                end
+            end
+        end
+    end
+end
+
 -- A state layer and a ripple under `content`: hover tints the box with `ink` at 8%, keyboard focus
--- at 10%, and each press grows a shape from the pointer at 10%, fading as it spreads.
+-- at 10% with the focus ring, and each press grows a shape from the pointer at 10%, fading as it spreads.
+---@param name string
+---@param props table
+---@param ink string|Signal<string>
+---@param content Node
+---@return Node
 function M.interactive(name, props, ink, content)
     local over = hover("m3_" .. name)
     local held = props.focused or focused("m3_focus_" .. name)
@@ -71,6 +149,8 @@ function M.interactive(name, props, ink, content)
     content.id = "content"
     props.hover = over
     props.focused = held
+    M.disable(props)
+    M.focusable(name, props)
     props.clip = "rounded"
     props.animate = merge({ background = FADE, border_color = FADE }, props.animate)
     props.on_drag = function(box, pointer, phase)

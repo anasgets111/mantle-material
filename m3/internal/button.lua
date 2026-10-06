@@ -11,6 +11,7 @@ local M = {}
 -- morph on press. Press feedback is paint-only: a layout change would cancel the click.
 local function pressable(name, props, ink, content, held)
     local over = hover("m3_" .. name)
+    local keyed = focused("m3_focus_" .. name)
     ---@type StateSignal<table|false>
     local ripple = state("m3_ripple_" .. name, false)
     local layer = rect {
@@ -18,11 +19,14 @@ local function pressable(name, props, ink, content, held)
         width = "fill",
         height = "fill",
         background = ink,
-        opacity = over:map(function(on) return on and 0.08 or 0 end),
+        opacity = computed({ over, keyed }, function(on, kb) return kb and 0.10 or on and 0.08 or 0 end),
         animate = { opacity = { duration = 150, easing = "out_quad" } },
     }
     content.id = "content"
     props.hover = over
+    props.focused = keyed
+    core.disable(props)
+    core.focusable(name, props)
     props.clip = "rounded"
     props.animate = merge({ background = FADE, border_color = FADE, radius = SPRING }, props.animate)
     props.on_drag = function(box, pointer, phase)
@@ -137,6 +141,7 @@ local function button(id, o)
         border_width = tone.border and sz.outline or 0,
         border_color = border,
         on_click = o.on_click,
+        disabled = o.disabled,
     }, theme.elevation[tone.elevation or 0])
     return pressable(id, merge(props, o.props), fg, row {
         width = o.width and "fill",

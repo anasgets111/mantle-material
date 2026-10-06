@@ -104,13 +104,19 @@ The mouse wheel nudges a single thumb.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `anchor` | `geometry(name)` signal | required | The menu opens just under it |
-| `items` | list | required | `{ label, icon?, selected? (signal: check and tint), on_click? }` or `{ divider = true }` |
+| `anchor` | `geometry(name)` signal | required unless `at` | The menu opens just under it, above when there is no room |
+| `at` | `{ x, y }` | none | A point in the window instead of `anchor`: a context menu touching the pointer, flipped and slid to stay inside the window |
+| `items` | list | required | `{ label, icon?, shortcut?, selected? (signal: check and tint), disabled?, submenu?, on_click? }`, `{ divider = true }` or `{ header = "..." }`. A `submenu` (items, one level) opens to the side, to the left when there is no room |
+| `on_pick` | function | none | Called with the picked item, after its `on_click` |
+| `vibrant` | boolean | `false` | The Expressive vibrant colours (tertiary container) |
+| `window` | string | `m3.core.window` | The window or panel it opens over |
 | `width` | number or `"anchor"` | `224` | Px, or the anchor's width |
 | `align` | `"start"`, `"end"` | `"start"` | Which edge of the anchor it lines up with (`"end"` needs a px width) |
 | `id` | string | `""` | Names the opener |
 
-`m3.menu_open(id)` is a signal, true while the menu opened with that `id` shows.
+`m3.menu_open(id)` is a signal, true while the menu opened with that `id` shows. Up, Down, Home, End, Enter, Right and Left (submenus) and typed letters move through the items; `m3.menu_highlighted()` and `m3.pick_highlighted(id?)` let an opener's own keys steer it.
+
+`m3.context_menu(id, { child, items, on_pick?, vibrant?, window? })` wraps a control so a right click opens `items` (a list, or a function building it) at the pointer. `m3.bind_shortcuts(items, window?)` makes the items' `shortcut` strings (`"Ctrl+Shift+N"`; `⌘` means Ctrl) run their `on_click` while the window has the keyboard and no layer is open: bind the list the menu shows.
 
 ```lua
 local more = geometry("more")

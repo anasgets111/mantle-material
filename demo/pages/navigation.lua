@@ -7,8 +7,10 @@ local motion, easing = theme.motion, theme.easing
 local FADE = motion.fade
 local W, H = 300, 520
 
-local function card(title, description, body)
-    return section.card(title, { m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" }), body })
+-- `wide = true` for phone frames side by side, which need the window's width.
+local function card(title, description, body, wide)
+    local node = section.card(title, { m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" }), body })
+    return wide and section.wide(node) or node
 end
 
 -- A phone-shaped screen: components inside it lay out against its own size.
@@ -34,7 +36,7 @@ local function labelled(caption, node)
 end
 
 local function frames(list)
-    return row { spacing = 24, children = list }
+    return row { width = "fill", wrap = true, spacing = 24, line_spacing = 24, children = list }
 end
 
 -- Placeholder list rows to scroll under a bar.
@@ -127,15 +129,15 @@ local function tabs_demo(kind, items)
     })
 end
 
-local tabs_card = card("Tabs", "Primary tabs mark the content width with a 3px indicator; secondary tabs underline the whole tab with 2px. The indicator springs between tabs.",
-    row {
+local tabs_card = card("Tabs", "Primary tabs mark the content width with a 3px indicator; secondary tabs underline the whole tab with 2px. The indicator springs between tabs. Tab in, then the arrows move and select.",
+    row { wrap = true, line_spacing = 24,
         width = "fill",
         spacing = 24,
         children = {
             tabs_demo("primary", { { label = "Flights", icon = "flight" }, { label = "Trips", icon = "luggage" }, { label = "Explore", icon = "explore" } }),
             tabs_demo("secondary", { { label = "Overview" }, { label = "Specs" }, { label = "Reviews" } }),
         },
-    })
+    }, true)
 
 ---------------------------------------------------------------------------------------------------
 -- Navigation bar
@@ -147,22 +149,25 @@ local BAR_ITEMS = {
     { label = "Profile", icon = "person", badge = 3 },
 }
 
-local function bar_demo(id, labels)
+-- not in the spec: the short bar is for wider windows, so its frame is a landscape one.
+local SHORT_W = 440
+
+local function bar_demo(id, labels, short)
     local selected = state("m3_nav_bar_" .. id, 1)
-    return frame(W, H, {
+    return frame(short and SHORT_W or W, H, {
         column {
             width = "fill",
             height = "fill",
             children = {
                 screen(selected, function(i) return BAR_ITEMS[i] end),
-                m3.navigation_bar(id, { items = BAR_ITEMS, value = selected, labels = labels }),
+                m3.navigation_bar(id, { items = BAR_ITEMS, value = selected, labels = labels, short = short }),
             },
         },
     })
 end
 
-local bar_card = card("Navigation bar", "Three to five destinations at the bottom. The 56x32 pill springs open from its centre, the active icon fills and a badge counts.",
-    frames { labelled("With labels", bar_demo("full", true)), labelled("Icons only", bar_demo("short", false)) })
+local bar_card = card("Navigation bar", "Three to five destinations at the bottom. The 56x32 pill springs open from its centre, the active icon fills and a badge counts. Tab in, then the arrows move between destinations. The short bar sets icon and label side by side.",
+    frames { labelled("With labels", bar_demo("full", true)), labelled("Icons only", bar_demo("icons", false)), labelled("Short", bar_demo("short", true, true)) }, true)
 
 ---------------------------------------------------------------------------------------------------
 -- Navigation drawer and expanded rail: both modal, over a scrim, inside a frame.
@@ -262,10 +267,11 @@ local rail_card = card("Navigation rail", "The app's own rail on the left is the
 local function appbar_demo(kind)
     local offset = scroll("m3_nav_appbar_" .. kind)
     return frame(220, 420, {
-        column { width = "fill", height = "fill", scroll = offset, animate = { scroll = 160 }, padding = { top = m3.top_app_bar_height(kind) }, children = rows(14, "Item") },
+        column { width = "fill", height = "fill", scroll = offset, animate = { scroll = theme.motion.scroll }, padding = { top = m3.top_app_bar_height(kind) }, children = rows(14, "Item") },
         m3.top_app_bar("appbar_" .. kind, {
             kind = kind,
             title = "Inbox",
+            subtitle = kind == "flexible" and "24 unread" or nil,
             navigation_icon = kind == "center" and "menu" or "arrow_back",
             actions = { { icon = "more_vert", label = "More", on_click = function() end } },
             scroll = offset,
@@ -279,7 +285,8 @@ local appbar_card = card("Top app bars", "Centre-aligned and small bars stay 64p
         labelled("Small", appbar_demo("small")),
         labelled("Medium", appbar_demo("medium")),
         labelled("Large", appbar_demo("large")),
-    })
+        labelled("Flexible, with subtitle", appbar_demo("flexible")),
+    }, true)
 
 ---------------------------------------------------------------------------------------------------
 -- Toolbars (Expressive)
@@ -295,26 +302,16 @@ local ADD = { icon = "add", label = "Add", on_click = function() end }
 local toolbar_card = card("Toolbars", "Expressive toolbars hold actions: the docked one spans the bottom edge; the floating pill, with a FAB beside it, slides away when you scroll down and returns when you scroll up.",
     frames {
         labelled("Docked", frame(W, H, {
-            column { width = "fill", height = "fill", scroll = scroll("m3_nav_docked"), animate = { scroll = 160 }, children = rows(14, "Item") },
+            column { width = "fill", height = "fill", scroll = scroll("m3_nav_docked"), animate = { scroll = theme.motion.scroll }, children = rows(14, "Item") },
             m3.toolbar("docked", { kind = "docked", actions = TOOLS, fab = ADD }),
         })),
         labelled("Floating", (function()
             local offset = scroll("m3_nav_floating")
             return frame(W, H, {
-                column { width = "fill", height = "fill", scroll = offset, animate = { scroll = 160 }, children = rows(14, "Item") },
+                column { width = "fill", height = "fill", scroll = offset, animate = { scroll = theme.motion.scroll }, children = rows(14, "Item") },
                 m3.toolbar("float", { kind = "floating", actions = TOOLS, fab = ADD, scroll = offset }),
             })
         end)()),
-    })
+    }, true)
 
-return column {
-    width = "fill",
-    spacing = 16,
-    children = {
-        tabs_card,
-        bar_card,
-        row { width = "fill", spacing = 16, children = { drawer_card, rail_card } },
-        appbar_card,
-        toolbar_card,
-    },
-}
+return section.page { tabs_card, bar_card, drawer_card, rail_card, appbar_card, toolbar_card }

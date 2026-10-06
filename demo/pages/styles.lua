@@ -94,7 +94,14 @@ for i, t in ipairs(theme.TYPE_SCALE) do
         },
     }
 end
-local type_page = section.card("Type scale", type_rows)
+local type_page = column {
+    width = "fill",
+    spacing = 16,
+    children = {
+        section.card("Type scale", { table.unpack(type_rows, 1, 15) }),
+        section.card("Emphasized type scale", { table.unpack(type_rows, 16) }),
+    },
+}
 
 -- M3 corner radius scale, in dp.
 local SHAPES = {
@@ -190,7 +197,7 @@ local SPRINGS = {
 }
 local spring_lanes = {}
 for i, sp in ipairs(SPRINGS) do
-    local spring = theme.motion[sp[2]].spring
+    local spring = theme.springs[sp[2]]
     spring_lanes[i] = lane(sp[1], string.format("stiffness %d, damping ratio %.1f", spring.stiffness, spring.damping / (2 * math.sqrt(spring.stiffness))), theme.motion[sp[2]])
 end
 
@@ -290,8 +297,8 @@ local elevation_page = column {
     },
 }
 
-local WALLPAPERS = "/mnt/Work/1Wallpapers/Main"
-mantle.files:watch(WALLPAPERS, { "jpg", "jpeg", "png", "webp" })
+local WALLPAPERS = mantle.config_dir .. "/demo/wallpapers"
+mantle.files:watch(WALLPAPERS, { "svg", "jpg", "jpeg", "png", "webp" })
 
 local picked = state("m3_wallpaper", "")
 local extracted = state("m3_swatches", {})
@@ -421,7 +428,7 @@ local wallpaper_page = column {
     spacing = 16,
     children = {
         section.card("Wallpaper", { thumbnails }),
-        row {
+        row { wrap = true, line_spacing = 24,
             width = "fill",
             spacing = 16,
             children = {
@@ -462,11 +469,7 @@ local TABS = {
 }
 local tab = state("m3_styles_tab", 1)
 
-return column {
-    width = "fill",
-    spacing = 16,
-    children = {
-        m3.tabs("styles", { items = TABS, value = tab }),
-        m3.tab_content("styles_tab", { value = tab, pages = { color_page, wallpaper_page, type_page, shape_page, elevation_page, motion_page } }),
-    },
+return section.page {
+    section.wide(m3.tabs("styles", { items = TABS, value = tab })),
+    section.wide(m3.tab_content("styles_tab", { value = tab, pages = { color_page, wallpaper_page, type_page, shape_page, elevation_page, motion_page } })),
 }
