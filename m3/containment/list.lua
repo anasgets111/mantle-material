@@ -171,7 +171,7 @@ end
 ---@field query? Signal<string> Filters `items` by fuzzy match on `search`, best match first (item order breaks ties).
 ---@field search? fun(item: any): string The text `query` matches. Required with `query`.
 ---@field key? fun(item: any): string Stable identity for move, exit and `value`; default the item's `label`, else `tostring`.
----@field row fun(item: any, emphasized: Signal<boolean>, selected: Signal<boolean>): Node Usually a `list_item` with `animated`. Required. Both signals follow `value` (this list has no inactive look, so they match), and stay false without `value` or `on_select`.
+---@field row fun(item: any, emphasized: Signal<boolean>, selected: Signal<boolean>): Node Usually a `list_item` with `animated`. Required. `emphasized` stays false: M3 selects with `secondary_container`, which keeps the row's own ink; `selected` follows `value`.
 ---@field value? StateSignal<string> The selected key; with `value` or `on_select` a click on a row selects it, tinted `secondary_container`. Leave the row's own `on_click` unset.
 ---@field on_select? fun(item: any) After a click selects an item.
 ---@field height? number|"fill"
@@ -237,7 +237,7 @@ function M.list(id, opts)
                         opts.on_select(item)
                     end
                 end,
-            }, c.on_surface, opts.row(item, selected, selected))
+            }, c.on_surface, opts.row(item, OFF, selected))
         end,
     }
 end

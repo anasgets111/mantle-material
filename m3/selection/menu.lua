@@ -470,6 +470,8 @@ end
 ---@field on_pick? fun(item: m3.MenuItem)
 ---@field vibrant? boolean
 ---@field window? string The window or panel it opens over; default `core.window`.
+---@field width? number|"fill" The area's width; default the child's. "fill" lets a child that fills keep its width.
+---@field height? number|"fill"
 ---@field [string] "no such property"
 
 ---@param id string
@@ -477,6 +479,8 @@ end
 ---@return Node
 function M.context_menu(id, opts)
     return rect {
+        width = opts.width,
+        height = opts.height,
         cursor = "default",
         on_click = function(r, button, p)
             if button ~= "right" then

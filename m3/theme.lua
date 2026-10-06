@@ -35,6 +35,25 @@ M.reduced_motion = mantle.appearance:map(function(sys) return sys ~= nil and sys
 
 -- Built once per combination: a scheme change re-reads every role, so it must stay cheap.
 local schemes = {}
+-- The shared roles every library of the unified API answers to, in every scheme: they sit
+-- beside the native roles (`background` aliases `surface`).
+---@class m3.Scheme: PaletteScheme
+---@field accent Color
+---@field on_accent Color
+---@field text Color
+---@field text_secondary Color
+---@field text_disabled Color
+---@field container Color
+---@field container_raised Color
+---@field success Color
+---@field warning Color
+
+local SHARED = {
+    accent = "primary", on_accent = "on_primary", text = "on_surface", text_secondary = "on_surface_variant",
+    background = "surface", container = "surface_container", container_raised = "surface_container_high", separator = "outline_variant",
+}
+local STATUS = { success = { "#2E7D32", "#81C784" }, warning = { "#B26A00", "#FFB74D" } }
+
 M.scheme = computed({ M.seed, M.dark, M.variant, M.contrast, mantle.appearance }, function(seed, dark, variant, contrast, sys)
     if seed == "system" then
         local accent = sys and sys.accent
@@ -44,7 +63,17 @@ M.scheme = computed({ M.seed, M.dark, M.variant, M.contrast, mantle.appearance }
         contrast = sys and sys.contrast == "high" and 1 or 0
     end
     local key = ("%s|%s|%s|%s"):format(seed, tostring(dark), variant, contrast)
-    schemes[key] = schemes[key] or palette.scheme(seed, { dark = dark, variant = variant, contrast = contrast })
+    if not schemes[key] then
+        local scheme = palette.scheme(seed, { dark = dark, variant = variant, contrast = contrast }) --[[@as m3.Scheme]]
+        for role, native in pairs(SHARED) do
+            scheme[role] = scheme[native]
+        end
+        scheme.text_disabled = M.alpha(scheme.on_surface, 0.38)
+        for role, pair in pairs(STATUS) do
+            scheme[role] = pair[dark and 2 or 1]
+        end
+        schemes[key] = scheme
+    end
     return schemes[key]
 end)
 
@@ -64,25 +93,9 @@ function M.next_seed()
     M.seed:set(M.SEEDS[at % #M.SEEDS + 1].color)
 end
 
--- The shared roles every library of the unified API answers to, from the scheme and `dark`: they sit
--- beside the native roles (`background` aliases `surface`).
-local SHARED = {
-    accent = "primary", on_accent = "on_primary", text = "on_surface", text_secondary = "on_surface_variant",
-    background = "surface", container = "surface_container", container_raised = "surface_container_high", separator = "outline_variant",
-}
-local STATUS = { success = { "#2E7D32", "#81C784" }, warning = { "#B26A00", "#FFB74D" } }
-
 M.c = setmetatable({}, {
     __index = function(roles, role)
-        local signal
-        if role == "text_disabled" then
-            signal = M.scheme:map(function(scheme) return M.alpha(scheme.on_surface, 0.38) end)
-        elseif STATUS[role] then
-            signal = M.dark:map(function(dark) return STATUS[role][dark and 2 or 1] end)
-        else
-            local native = SHARED[role] or role
-            signal = M.scheme:map(function(scheme) return scheme[native] end)
-        end
+        local signal = M.scheme:map(function(scheme) return scheme[role] end)
         rawset(roles, role, signal)
         return signal
     end,
