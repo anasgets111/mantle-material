@@ -85,8 +85,14 @@ function M.pill_item(id, item, active, on_click, gap)
         icon(item.icon, fg, 24, { filled = active }),
         text(label, fg, "label_large", { width = "fill", wrap = "none", elide = "end" }),
     }
-    if item.count then
-        kids[3] = text(item.count, fg, "label_large")
+    -- A horizontal item shows its `badge` as the trailing count, as M3's drawer and expanded rail do.
+    local count = item.count
+    if not count and item.badge then
+        local function show(n) return n and n > 0 and tostring(n) or "" end
+        count = type(item.badge) == "userdata" and (item.badge --[[@as Signal<integer>]]):map(show) or show(item.badge)
+    end
+    if count then
+        kids[3] = text(count, fg, "label_large")
     end
     return interactive(id, {
         width = "fill",

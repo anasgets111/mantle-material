@@ -51,8 +51,10 @@ function M.segmented_control(id, opts)
             content[#content + 1] = text(label, fg, "label_large", { id = "label" })
         end
         segments[i] = core.interactive(id .. i, bind(i, {
-            -- not in the spec: an icon-only segment is a fixed 52 wide.
+            -- not in the spec: an icon-only segment is a fixed 52 wide; a labelled one without `width`
+            -- fits its label with 12 either side.
             width = opts.width or (not label and 52 or nil),
+            padding = not opts.width and label and { left = 12, right = 12 } or nil,
             height = "fill",
             background = computed({ selected, theme.scheme }, function(on, scheme) return on and scheme.secondary_container or CLEAR end),
             border_width = i > 1 and { left = 1 } or 0,
@@ -72,7 +74,7 @@ function M.segmented_control(id, opts)
                 end
             end,
         }), fg, row {
-            width = "fill",
+            width = (opts.width or not label) and "fill" or nil,
             height = "fill",
             align_h = "center",
             align_v = "center",

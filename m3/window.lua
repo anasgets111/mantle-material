@@ -140,26 +140,76 @@ local function resize_grips(id)
     }
 end
 
+-- The shared `navigation`, `actions` and title (the same shape in glass) as adaptive navigation
+-- around a top app bar over the child. Returns the child alone when none is given.
+---@param props m3.AppWindowProps
+---@return Node content
+---@return boolean barred The top app bar carries the window controls.
+local function shared_chrome(props)
+    local nav = props.navigation
+    if not (nav or props.actions or props.subtitle) then
+        return props.child, false
+    end
+    local page = column {
+        width = "fill",
+        height = "fill",
+        children = {
+            require("m3.navigation.top_app_bar").top_app_bar(props.id .. "_bar", {
+                title = props.title,
+                subtitle = props.subtitle,
+                actions = props.actions,
+                window = props.decorations ~= "server" and props.id or nil,
+                on_close = props.on_close,
+            }),
+            props.child,
+        },
+    }
+    if not nav then
+        return page, true
+    end
+    if nav.on_select then
+        nav.value:on_change(function(name) nav.on_select(name) end)
+    end
+    return require("m3.layout.adaptive").adaptive_navigation(props.id .. "_nav", {
+        items = nav.items,
+        value = nav.value,
+        content = page,
+        window = props.id,
+    }), true
+end
+
 -- An app window wired for overlays: any `window` field, with `props.child` the app's content. The
 -- root paints `surface`, stacks the app's layers over `child` and routes Escape and keys to them.
 ---@class m3.AppWindowProps: WindowProps
 ---@field decorations? "client"|"server" Default "client": the app draws the frame (rounded, shadowed, resizable by its edges) and the window controls. "server" leaves both to the compositor.
 ---@field controls? boolean Client frame only, default true: minimise, maximise and close at the top end. `false` when the app's own top bar carries `m3.window_controls(id)`.
 ---@field child Node The app's content.
+---@field title? string|Signal<string> Shared with glass: with `subtitle`, `navigation` or `actions`, the window gets a top app bar that carries the title, the actions and the window controls.
+---@field subtitle? string|Signal<string>
+---@field navigation? m3.WindowNavigation Shared with glass: the app's destinations, drawn as adaptive navigation (a bar, rail or drawer by width).
+---@field actions? m3.TopAppBarAction[] Shared with glass: `{ icon, label?, on_click?, menu? }` buttons at the top app bar's end.
+
+---@class m3.WindowNavigation
+---@field items m3.NavItem[]
+---@field value StateSignal<string> The selected item's name.
+---@field header? string Glass shows it over its sidebar; m3's navigation has no header.
+---@field on_select? fun(name: string)
+---@field [string] "no such property"
 
 ---@param props m3.AppWindowProps
 ---@return Surface
 function M.app_window(props)
     local id = props.id
     local own = core.merge({}, props)
-    own.child, own.controls = nil, nil
+    local child, barred = shared_chrome(props)
+    own.child, own.controls, own.navigation, own.actions, own.subtitle = nil, nil, nil, nil, nil
     local client = props.decorations ~= "server"
-    local base = props.child
-    if client and props.controls ~= false then
+    local base = child
+    if client and props.controls ~= false and not barred then
         base = rect {
             width = "fill",
             height = "fill",
-            children = { props.child, rect { align_h = "end", align_v = "start", margin = { top = 12, right = 12 }, children = { M.window_controls(id, props.on_close) } } },
+            children = { child, rect { align_h = "end", align_v = "start", margin = { top = 12, right = 12 }, children = { M.window_controls(id, props.on_close) } } },
         }
     end
     local root = rect {
