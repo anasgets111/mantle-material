@@ -10,7 +10,7 @@ local M = {}
 -- the whole button and turns over while it shows. Inner corners stay small and spring to 12 while
 -- pressed; the open chevron button becomes round.
 ---@class m3.SplitButtonOpts
----@field kind? m3.ButtonKind Default "filled".
+---@field kind? m3.ButtonKind Default "primary".
 ---@field label? string|Signal<string>
 ---@field icon? string|Signal<string> Material Symbols name.
 ---@field on_click? fun() The leading action.
@@ -24,7 +24,7 @@ local M = {}
 ---@return Node
 function M.split_button(id, opts)
     local owner = "split_" .. id
-    local open = menu.menu_open(owner)
+    local open = menu.is_menu_open(owner)
     local anchor = geometry("m3_" .. owner)
     return row {
         spacing = 2,

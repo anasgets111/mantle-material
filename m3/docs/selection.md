@@ -4,14 +4,14 @@
 
 | Component | What it is |
 | :--- | :--- |
-| `checkbox` | One box: unchecked, checked or indeterminate; the tick and dash are round-capped strokes that draw out with `trim_end` |
+| `checkbox` | One box: unchecked, checked or mixed; the tick and dash are round-capped strokes that draw out with `trim_end` |
 | `checkbox_group` | A parent checkbox over a list of children |
 | `radio_group` | One choice from a list; the dot grows on a spring |
 | `switch` | 52x32 toggle with optional icons; with a detail line, a settings row |
 | `chip` | Assist, filter, input or suggestion chip |
 | `input_chips` / `suggestion_chips` | A removable list of chips and the options not yet picked |
 | `slider` | Continuous, discrete, range or centered, with a value bubble |
-| `open_menu` / `menu_open` | An M3 menu layer under an anchor |
+| `open_menu` / `is_menu_open` | An M3 menu layer under an anchor |
 | `dropdown` | Exposed dropdown: a read-only field that opens a menu |
 | `date_picker` / `open_date_picker` | Date field with a docked calendar; modal or docked picker |
 | `time_picker` / `open_time_picker` | Time field; modal dial |
@@ -20,8 +20,9 @@
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `value` | state `true`, `false` or `"indeterminate"` | own, `false` | Checked state; a click sets `true`, or `false` when it was `true` |
+| `value` | state `true`, `false` or `"mixed"` | own, `false` | Checked state; a click sets `true`, or `false` when it was `true` |
 | `label` | string | none | Text beside the box |
+| `name` | string | label | Accessible name |
 | `error` / `disabled` | boolean or signal | `false` | Error colours; dimmed and inert |
 | `on_change` | `fun(value)` | none | After a click |
 
@@ -32,7 +33,7 @@ m3.checkbox("agree", { value = agree, label = "I agree", error = agree:map(funct
 
 ## checkbox_group
 
-`m3.checkbox_group(id, { label, items, value, error, disabled, on_change })`. `items` is a list of labels; `value` is a state holding a set `{ [label] = true }` (default: the first item). The parent is checked when all are, indeterminate when some are; clicking it checks or clears all. `on_change(set)`.
+`m3.checkbox_group(id, { label, items, value, error, disabled, on_change })`. `items` is a list of labels; `value` is a state holding a set `{ [label] = true }` (default: the first item). The parent is checked when all are, mixed when some are; clicking it checks or clears all. `on_change(set)`.
 
 ## radio_group
 
@@ -55,6 +56,7 @@ m3.radio_group("plan", { options = { "Monthly", "Yearly" }, value = plan })
 | `icons` | boolean | `false` | Check on the thumb when on, close when off |
 | `disabled` | boolean or signal | `false` | Inert |
 | `label`, `detail` | string | none | Both set: returns a row, label over detail, the switch trailing |
+| `name` | string | label | Accessible name |
 | `on_change` | `fun(on)` | none | After a toggle |
 
 ```lua
@@ -85,12 +87,15 @@ m3.chip("rated", { kind = "filter", label = "Top rated", value = rated })
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `kind` | `"continuous"`, `"discrete"`, `"range"`, `"centered"` | `"continuous"` | Variant |
-| `value` | state 0..1 | own, `0.5` | The value; the high thumb of a range |
-| `low` | state 0..1 | own, `0.25` | The low thumb (range) |
+| `min`, `max` | number | `0`, `1` | The value range |
+| `step` | number | continuous | Snaps to multiples from `min` |
+| `value` | state in `min`..`max` | own, the middle | The value; the high thumb of a range |
+| `low` | state in `min`..`max` | own, a quarter along | The low thumb (range) |
+| `name` | string | id | Accessible name |
 | `size` | `"xs"`, `"s"`, `"m"`, `"l"`, `"xl"` | `"xs"` | Track height 16, 24, 40, 56, 96; handle 44, 44, 44, 68, 108 |
 | `steps` | number | `5` | Divisions and ticks (discrete) |
 | `width` | number | `300` | Px |
-| `format` | `fun(v): string` | percent | Bubble text |
+| `format` | `fun(v): string` | percent | Bubble text, from the value in `min`..`max` (the rounded value with a `min` or `max`) |
 
 ```lua
 m3.slider("volume", { value = volume, width = 340 })
@@ -98,7 +103,7 @@ m3.slider("volume", { value = volume, width = 340 })
 
 The mouse wheel nudges a single thumb.
 
-## open_menu, menu_open
+## open_menu, is_menu_open
 
 `m3.open_menu(opts)` shows the menu layer; Escape, a click outside or an item closes it.
 
@@ -106,7 +111,7 @@ The mouse wheel nudges a single thumb.
 | :--- | :--- | :--- | :--- |
 | `anchor` | `geometry(name)` signal | required unless `at` | The menu opens just under it, above when there is no room |
 | `at` | `{ x, y }` | none | A point in the window instead of `anchor`: a context menu touching the pointer, flipped and slid to stay inside the window |
-| `items` | list | required | `{ label, icon?, shortcut?, selected? (signal: check and tint), disabled?, submenu?, on_click? }`, `{ divider = true }` or `{ header = "..." }`. A `submenu` (items, one level) opens to the side, to the left when there is no room |
+| `items` | list | required | `{ label, icon?, shortcut?, checked? (boolean or signal: check and tint), disabled?, submenu?, on_click? }`, `{ separator = true }` or `{ header = "..." }`. A `submenu` (items, one level) opens to the side, to the left when there is no room |
 | `on_pick` | function | none | Called with the picked item, after its `on_click` |
 | `vibrant` | boolean | `false` | The Expressive vibrant colours (tertiary container) |
 | `window` | string | `m3.core.window` | The window or panel it opens over |
@@ -114,7 +119,7 @@ The mouse wheel nudges a single thumb.
 | `align` | `"start"`, `"end"` | `"start"` | Which edge of the anchor it lines up with (`"end"` needs a px width) |
 | `id` | string | `""` | Names the opener |
 
-`m3.menu_open(id)` is a signal, true while the menu opened with that `id` shows. Up, Down, Home, End, Enter, Right and Left (submenus) and typed letters move through the items; `m3.menu_highlighted()` and `m3.pick_highlighted(id?)` let an opener's own keys steer it.
+`m3.is_menu_open(id)` is a signal, true while the menu opened with that `id` shows. Up, Down, Home, End, Enter, Right and Left (submenus) and typed letters move through the items; `m3.menu_highlighted()` and `m3.pick_highlighted(id?)` let an opener's own keys steer it.
 
 `m3.context_menu(id, { child, items, on_pick?, vibrant?, window? })` wraps a control so a right click opens `items` (a list, or a function building it) at the pointer. `m3.bind_shortcuts(items, window?)` makes the items' `shortcut` strings (`"Ctrl+Shift+N"`; `⌘` means Ctrl) run their `on_click` while the window has the keyboard and no layer is open: bind the list the menu shows.
 
@@ -145,7 +150,7 @@ m3.dropdown("sort", { kind = "filled", label = "Sort by", options = { "Relevance
 | `on_change` | `fun(t)` | none | After OK |
 
 ```lua
-m3.button("pick", { label = "Pick a range", on_click = function() m3.open_date_picker({ range = true, value = trip }) end })
+m3.button("pick", { kind = "primary", label = "Pick a range", on_click = function() m3.open_date_picker({ range = true, value = trip }) end })
 ```
 
 ## time_picker, open_time_picker

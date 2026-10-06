@@ -93,7 +93,7 @@ end
 
 ---@class m3.ButtonGroupOpts
 ---@field kind? "standard"|"connected" Default "standard".
----@field button_kind? m3.ButtonKind The buttons' kind; default "tonal".
+---@field button_kind? m3.ButtonKind The buttons' kind; default "secondary".
 ---@field items m3.ButtonGroupItem[]
 ---@field value? StateSignal<integer> Connected only: the selected index (default 1).
 ---@field [string] "no such property"
@@ -102,7 +102,7 @@ end
 ---@param opts m3.ButtonGroupOpts
 ---@return Node
 function M.button_group(id, opts)
-    local o = merge({ button_kind = "tonal" }, opts)
+    local o = merge({ button_kind = "secondary" }, opts)
     return (opts.kind == "connected" and connected_group or standard_group)(id, o, opts.items)
 end
 

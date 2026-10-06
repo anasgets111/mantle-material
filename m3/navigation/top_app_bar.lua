@@ -60,7 +60,7 @@ function M.top_app_bar(id, opts)
     local kids = {}
     if opts.navigation_icon then
         kids[1] = icon_button(id .. "_nav", {
-            kind = "standard",
+            kind = "plain",
             icon = opts.navigation_icon,
             on_click = opts.on_navigation,
             props = { align_v = "center", accessible_name = "Navigate" },
@@ -81,7 +81,7 @@ function M.top_app_bar(id, opts)
     for i, action in ipairs(opts.actions or {}) do
         local anchor = action.menu and geometry("m3_" .. id .. "_action_" .. i)
         kids[#kids + 1] = icon_button(("%s_action_%d"):format(id, i), {
-            kind = "standard",
+            kind = "plain",
             icon = action.icon,
             on_click = function()
                 if action.on_click then

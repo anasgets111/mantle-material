@@ -21,7 +21,7 @@ return {
     -- Wires the overlay layers (menus, sheets, pickers, tooltips, dialogs, snackbar) and Escape, and
     -- draws the frame (`decorations = "server"` leaves it to the compositor).
     m3.app_window { id = "app", title = "My app", child = column { children = {
-        m3.button("save", { label = "Save", on_click = function() m3.overlay.notify("Saved") end }),
+        m3.button("save", { kind = "primary", label = "Save", on_click = function() m3.notify { title = "Saved" } end }),
     } } },
 }
 ```
@@ -29,7 +29,7 @@ return {
 Components that open layers need `m3.app_window` (or `m3.overlay.root(child, id)` as the window
 root's `children` with `geometry = m3.overlay.bounds(id)`, `on_escape = function() m3.overlay.escape(id) end` and
 `on_key = function(key) return m3.overlay.key(id, key) end`). Every opener (`open_menu`, the pickers, sheets, drawer,
-`overlay.notify`, `overlay.ask`, tooltips) takes `window`, the id of the window or panel it opens over; default
+`notify`, `open_dialog`, `open_popover`, `open_sheet`, tooltips) takes `window`, the id of the window or panel it opens over; default
 `m3.core.window`, else the first `app_window` built. A panel returns `m3.overlay.popup(id)` among its surfaces to host layers.
 
 ## Conventions
@@ -41,15 +41,16 @@ root's `children` with `geometry = m3.overlay.bounds(id)`, `on_escape = function
 | Values | A component that holds a value takes `opts.value`, a `state(...)` signal it reads and writes (checked, selected, level, text). Pass your own state to observe or drive it |
 | Callbacks | `opts.on_<event>` (`on_click`, `on_change`, `on_close`) |
 | Signals | Any display field (`label`, `icon`, `disabled`, ...) takes a plain value or a signal |
-| Variants | `opts.kind` picks the M3 variant (`"filled"`, `"outlined"`, `"tonal"`, ...); `opts.size` an Expressive size (`"xs"` ... `"xl"`) |
+| Variants | `opts.kind` picks the M3 variant (`"primary"`, `"outlined"`, `"secondary"`, ...); `opts.size` an Expressive size (`"xs"` ... `"xl"`) |
 | Colours | Only `m3.theme.c.<role>` signals; components never take raw colours |
 | Layers | Openers are functions: `m3.open_<thing>(opts)`; Escape and `m3.overlay.close_all()` close them; `opts.window` picks the host |
 
 ## Theme
 
 `m3.theme.c.<role>` is a live signal of each of the 49 M3 colour roles. `m3.theme.type` / `TYPE_SCALE`
-is the 15-style type scale and its `<name>_emphasized` variants (M3 Expressive: same size, heavier weight); `m3.theme.motion` holds the Expressive scheme's six springs (`spatial_fast`, `spatial`, `spatial_slow`, `effects_fast`, `effects`, `effects_slow`), `m3.theme.easing`
+is the 15-style type scale and its `<name>_emphasized` variants, plus the shared styles `title`, `headline`, `body`, `label`, `caption` (`title_large`, `headline_small`, `body_medium`, `label_large`, `body_small`) (M3 Expressive: same size, heavier weight); `m3.theme.motion` holds the Expressive scheme's six springs (`spatial_fast`, `spatial`, `spatial_slow`, `effects_fast`, `effects`, `effects_slow`; shared names `fast`, `default`, `slow` for the spatial three), `m3.theme.easing`
 the M3 cubic-beziers and `m3.theme.elevation[0..5]` the M3 key + ambient shadow pairs (spread onto a node's props; `m3.theme.shadows[n]` is the bare `shadows` list, for binding). See `theme.lua`.
+| Shared roles | `c` also answers the unified API's roles beside the native ones: `accent` / `on_accent` (`primary` / `on_primary`), `text` (`on_surface`), `text_secondary` (`on_surface_variant`), `text_disabled` (`on_surface` at 38%), `background` (an alias of the native `surface`), `container` (`surface_container`, the card fill), `container_raised` (`surface_container_high`), `separator` (`outline_variant`), `success` and `warning` (a fixed green and amber per light or dark); `error` / `on_error` are native |
 | Types | Every `opts` has a LuaLS class (`m3.<Name>Opts`); the editor completes and `just types` checks them |
 
 ## Components
@@ -67,10 +68,10 @@ Tokens, building blocks, shapes and the overlay host; every component uses them.
 | Function | Meaning |
 | :--- | :--- |
 | `merge(into, from)` | Copies `from`'s fields onto `into`, returns `into` |
-| `text(content, color, style?, props?)` | Text node; `style` is a `theme.type` key (default `"body_medium"`); `content` and `color` take signals `style` may also be a `<name>_emphasized` key. |
-| `icon(name, color, size?, props?)` | Material Symbols glyph by ligature name (default size 24); `props.filled` (boolean or signal) switches the FILL axis |
+| `text(content, color, style?, props?)` | Text node; `style` is a `theme.type` key (default `"body"`); `content` and `color` take signals `style` may also be a `<name>_emphasized` key. |
+| `icon(name, color, size?, props?)` | Material Symbols glyph by a shared icon name, else by ligature name (default size 24); `props.filled` (boolean or signal) switches the FILL axis |
 | `interactive(name, props, ink, content)` | A box with a state layer (hover 8%, focus 10%), a ripple under `content` and the focus ring; returns the node |
-| `focusable(name, props)` | M3's focus indicator on a node that takes Tab focus: a 3dp `secondary` ring while keyboard focus is on it (`focus_visible`), added to `props.shadows`; sets `focus_ring = false`. The ring hugs the shape: a shadow can't leave the spec's 2dp gap The ring hugs the shape: a shadow can't paint the spec's 2dp gap (engine request: an outline offset). |
+| `focusable(name, props)` | M3's focus indicator on a node that takes Tab focus: a 3dp `secondary` ring 2dp outside its shape (the engine's `ring`) while keyboard focus is on it, eased in. A clipping parent needs 5dp of room around the node |
 | `scroll_ease()` | The animation of a user scroll column: `animate = { scroll = m3.scroll_ease() }` (critically damped spring, quick under reduced motion) |
 | `window` | Field, default `nil`: the id of the window or panel layers open over when an opener gets no `window` |
 
@@ -104,9 +105,9 @@ Layers over a window or panel (the host), one stack per host. Every opener takes
 
 | Function | opts |
 | :--- | :--- |
-| `notify(message, opts?)` | Snackbar, one per host. `action` (label) with `on_action`, `close` (trailing close icon), `window`. Leaves after 4 s, 8 s with an action Further messages queue and show after the current one leaves. |
-| `ask(spec, confirm?)` | Dialog over a scrim. `spec`: `title`, `icon?`, `body?` (string, or any node: it scrolls when tall), `actions?` (`{ label, kind? ("text" default, "tonal", "filled"), on_click? }[]`, each closes the dialog then runs; default Cancel), `confirm?` (label of a trailing action that runs `confirm`), `window?` |
-| `confirm_remove(spec, remove, restore)` | A delete behind a confirm dialog (`spec` as `ask`, `icon` and `confirm` default to a delete's; `message` is the snackbar text), then a snackbar whose Undo calls `restore` |
+| `notify(opts)` (also `m3.notify`) | Snackbar, one per host. `title` (the message), `body?` (under it), `icon?`, `action` (label) with `on_action`, `close` (trailing close icon), `window`. Leaves after 4 s, 8 s with an action Further messages queue and show after the current one leaves. |
+| `open_dialog(opts)` (also `m3.open_dialog`) | Dialog over a scrim. `title`, `icon?`, `message?` (string, or any node: it scrolls when tall), `buttons?` (`{ label, kind? ("plain" default, "primary", "destructive"), on_click? }[]`, each closes the dialog then runs; default OK), `window?` |
+| `confirm_remove(opts, remove, restore)` | A delete behind a confirm dialog (`opts` as `open_dialog`, `icon` defaults to a delete's; `confirm` labels the destructive button, default "Delete"; `removed` is the snackbar text), then a snackbar whose Undo calls `restore` |
 | `close_dialog()`, `close_all()` | Close the dialog, or every layer and the tooltip |
 | `layer(id, build, handlers?)`, `open(id, data?, host?)`, `close(id)`, `is_open(id)` | Register a layer builder (`handlers.escape()`, `handlers.key(key)` for its own Escape and keys), show it on a host, remove it, signal of whether it shows |
 | `show_tip(id, anchor_name, build, host?)`, `hide_tip(id)` | One tooltip layer at a time; `build(anchor, bounds)` gets the anchor's and the host's `geometry` |
@@ -132,7 +133,7 @@ Common button: five emphasis levels, five Expressive sizes, optional toggle.
 
 | Function | opts |
 | :--- | :--- |
-| `button(id, opts)` | `kind` (`"filled"` default, `"tonal"`, `"elevated"`, `"outlined"`, `"text"`), `size` (`"xs"`..`"xl"`, default `"s"`; heights 32 / 40 / 56 / 96 / 136), `shape` (`"round"` default, `"square"`, `"toggle"`; a toggle squares while selected, implied by `value`), `label`, `icon` (Material Symbols name; signals), `value` (boolean state: makes it a toggle, a click flips it), `disabled` (signal: 38% and inert), `width` (fixed, content centred), `padding`, `icon_size` (override the size's), `icon_props`, `props` (extra node props for the container), `radius` (`fun(held, selected)` returning a radius signal; overrides the shape), `held` (pressed state; default its own), `on_click` (after the toggle flips) |
+| `button(id, opts)` | `kind` (`"primary"` default, `"secondary"`, `"plain"`, `"destructive"` (`error` / `on_error`), `"tinted"` (as `secondary`), `"elevated"`, `"outlined"`), `size` (`"xs"`..`"xl"`, default `"s"`; heights 32 / 40 / 56 / 96 / 136), `shape` (`"round"` default, `"square"`, `"toggle"`; a toggle squares while selected, implied by `value`), `label`, `icon` (shared or Material Symbols name; signals), `name` (accessible name), `value` (boolean state: makes it a toggle, a click flips it), `disabled` (signal: 38% and inert), `width` (fixed, content centred), `padding`, `icon_size` (override the size's), `icon_props`, `props` (extra node props for the container), `radius` (`fun(held, selected)` returning a radius signal; overrides the shape), `held` (pressed state; default its own), `on_click` (after the toggle flips) |
 
 #### actions/icon_button.lua (`icon_button`)
 
@@ -140,7 +141,7 @@ One glyph in a square container; a toggle fills its glyph.
 
 | Function | opts |
 | :--- | :--- |
-| `icon_button(id, opts)` | `kind` (`"standard"` default, `"filled"`, `"tonal"`, `"outlined"`), `size` (default `"s"`), `shape` (as `button`), `icon` (required; signal), `value` (boolean state: toggle), `disabled` (signal), `props`, `on_click` |
+| `icon_button(id, opts)` | `kind` (`"plain"` default, `"primary"`, `"secondary"`, `"outlined"`), `size` (default `"s"`), `shape` (as `button`), `icon` (required; signal), `value` (boolean state: toggle), `disabled` (signal), `props`, `on_click` |
 
 #### actions/fab.lua (`fab`, `extended_fab`, `fab_menu`)
 
@@ -158,7 +159,7 @@ Buttons in a row.
 
 | Function | opts |
 | :--- | :--- |
-| `button_group(id, opts)` | `kind` (`"standard"` default: pressing one grows it while its neighbours squish; `"connected"`: one selection, inner corners small, the selected item fully round), `button_kind` (the buttons' `kind`, default `"tonal"`), `items` (required: `{ label?, icon?, on_click? }`), `value` (connected only: state of the selected index, default 1) |
+| `button_group(id, opts)` | `kind` (`"standard"` default: pressing one grows it while its neighbours squish; `"connected"`: one selection, inner corners small, the selected item fully round), `button_kind` (the buttons' `kind`, default `"secondary"`), `items` (required: `{ label?, icon?, on_click? }`), `value` (connected only: state of the selected index, default 1) |
 
 #### actions/split_button.lua (`split_button`)
 
@@ -168,13 +169,13 @@ A leading action and a chevron that opens a menu under the whole button.
 | :--- | :--- |
 | `split_button(id, opts)` | `kind` (as `button`), `label`, `icon`, `on_click` (the leading action), `disabled`, `items` (required: menu items, see `open_menu`), `width` (menu width, default 224) |
 
-#### actions/segmented_button.lua (`segmented_button`)
+#### actions/segmented_control.lua (`segmented_control`)
 
 One outlined pill split into equal segments; the selected one is tinted and checked.
 
 | Function | opts |
 | :--- | :--- |
-| `segmented_button(id, opts)` | `options` (required: list of strings), `value` (state of the selected option; default the first), `width` (per segment) |
+| `segmented_control(id, opts)` | `items` (required: strings, or `{ label?, icon?, value? }`; the key is `value`, else the label, else the icon), `multiple` (several on; `value` is a set of keys), `value` (state of the selected key, or the set; default the first), `on_change(value)`, `name`, `width` (per segment) |
 
 ### Communication (`communication/`)
 
@@ -189,22 +190,22 @@ A dot or a count pill, and a wrapper that places one on a child's top-end corner
 | `badge(id, opts?)` | `count` (number or signal; omit for a 6px dot, else a 16px pill, `"999+"` past 999, hidden at 0) |
 | `badged(id, opts)` | `child` (required; usually an `m3.icon`), `count` (as `badge`), `size` (the icon box the badge is placed against; default 24), `box_top` (where that box starts inside `child`; default `size * 0.1`, an `m3.icon` line box) |
 
-#### communication/progress.lua (`linear_progress`, `circular_progress`)
+#### communication/progress.lua (`progress_bar`, `progress_ring`)
 
 Determinate and indeterminate, flat and wavy.
 
 | Function | opts |
 | :--- | :--- |
-| `linear_progress(id, opts)` | `value` (0..1, number or signal; default 0), `indeterminate` (ignores `value`), `wavy`, `width` (default 240) |
-| `circular_progress(id, opts)` | `value` (0..1, number or signal; default 0), `indeterminate` (ignores `value`), `wavy`. 48px |
+| `progress_bar(id, opts)` | `value` (0..1, number or signal; default 0), `indeterminate` (ignores `value`), `wavy`, `width` (default 240) |
+| `progress_ring(id, opts)` | `value` (0..1, number or signal; default 0), `indeterminate` (ignores `value`), `wavy`. 48px |
 
-#### communication/loading_indicator.lua (`loading_indicator`, `shape`)
+#### communication/spinner.lua (`spinner`, `shape`)
 
 The Expressive loading indicator and a single morphing shape.
 
 | Function | opts |
 | :--- | :--- |
-| `loading_indicator(id, opts?)` | `contained` (sits it on a 48px primary container circle) |
+| `spinner(id, opts?)` | `contained` (sits it on a 48px primary container circle) |
 | `shape(id, opts)` | `name` (string or signal, one of `m3.shapes.NAMES`; default `"circle"`; changing it morphs on a spring), `size` (default 48), `color` (string or signal; default `c.primary`), `props` |
 
 #### communication/tooltip.lua (`tooltip`, `rich_tooltip`)
@@ -236,7 +237,7 @@ A 1px `outline_variant` rule.
 | :--- | :--- |
 | `list_item(id, opts)` | `lines` (1-3 strings or signals; required; height 56, 72, 88), `leading` (`{ icon }` name, `{ avatar }` letter, `{ image }` source or `{ node }`), `trailing` (`{ text }`, `{ checkbox }`, `{ switch }` (`true` or a state signal) or `{ node }`), `on_click`, `animated` (move, fade in and exit, for rows of a `list`) `selected` (signal; the selected container colour), `segment` (`"first"`, `"middle"`, `"last"`, `"only"`: a separate rounded segment), `props`. |
 | `item_list(id, opts)` | `items` (`list_item` opts with `key`), `segmented` (2 px-apart rounded segments), `value` (state of the selected `key`), `width`. Up/Down/Home/End move focus |
-| `list(id, opts)` | `source` (list signal; required), `key` (`fn(entry) -> string`; required), `item` (`fn(entry) -> node`; required, usually a `list_item` with `animated`), `query` (signal: filters `source` by fuzzy match on `search`, best match first), `search` (`fn(entry) -> string`; required with `query`), `height`, `width` (default `"fill"`) |
+| `list(id, opts)` | `items` (array or list signal; required), `key` (`fn(item) -> string`; required), `row` (`fn(item, emphasized, selected) -> node`; required, usually a `list_item` with `animated`; both signals stay false), `query` (signal: filters `items` by fuzzy match on `search`, best match first), `search` (`fn(item) -> string`; required with `query`), `height`, `width` (default `"fill"`) |
 
 #### containment/card.lua (`card`)
 
@@ -261,6 +262,8 @@ Modal layers; one of each at a time.
 | Function | opts |
 | :--- | :--- |
 | `open_bottom_sheet(opts?)` | `window`, `title`, `items` (`{ icon?, label, on_click? }[]`; rows that close the sheet, then run), `content` (nodes or a function returning them). Drag the handle down to dismiss `modal` (default true; `false` is a standard sheet with no scrim). The handle drags it: past 100 px or a fling closes it, a shorter release springs back. |
+| `open_sheet(opts)` | `content`, `title`, `width` (default 640 bottom, 400 side), `side` (`"bottom"` default, `"side"`), `window`: dispatches to `open_bottom_sheet` or `open_side_sheet` |
+| `open_popover(opts)` | `anchor` (a `geometry(name)` signal) or `at` (`{ x, y }`), `content` (node, or a function building one), `edge` (`"bottom"` default, `"top"`, `"left"`, `"right"`: the side of the anchor; flips to the opposite side when only that has room, slides to stay inside the window), `width` (default 280), `window`. A surface-container card, elevation 2 |
 | `open_side_sheet(opts?)` | `window`, `title`, `content`, `confirm` (default `"Save"`), `cancel` (default `"Cancel"`), `on_confirm` (runs after the sheet closes) `modal` (default true; `false`: no scrim, the page stays live). |
 | `open_fullscreen_dialog(opts?)` | `window`, `title`, `content`, `confirm` (default `"Save"`), `on_confirm` |
 
@@ -285,7 +288,7 @@ Primary and secondary tabs with an indicator that springs to the selected tab, a
 
 | Function | opts |
 | :--- | :--- |
-| `tabs(id, opts)` | `items` (required; `{ name?, label, icon? }`), `value` (required; state: the selected `name` or index), `kind` (`"primary"` default: 3px indicator under the content, icons above labels; `"secondary"`: 2px indicator across the tab) |
+| `tabs(id, opts)` | `items` (required; `{ name?, label, icon?, content? }`; with any `content` the selected page shows under the bar), `value` (required; state: the selected `name` or index), `on_change(key)`, `name`, `kind` (`"primary"` default: 3px indicator under the content, icons above labels; `"secondary"`: 2px indicator across the tab) |
 | `tab_content(id, opts)` | `value` (required; the tabs' state, an index), `pages` (required; one node per tab), `height`. The page slides in from the side the tab lies on |
 
 #### navigation/navigation_bar.lua (`navigation_bar`)
@@ -302,7 +305,7 @@ Pill items with section headers and dividers. In a frame it slides over a scrim;
 
 | Function | opts |
 | :--- | :--- |
-| `navigation_drawer(id, opts)` | `items` (required; destinations with `count`, `{ header = "..." }`, `{ divider = true }`), `value` (state; default its own), `on_select(key)`, `kind` (`"modal"` default: slides over a scrim; `"standard"`: the plain sheet), `open` (state; modal only: whether it is shown) |
+| `navigation_drawer(id, opts)` | `items` (required; destinations with `count`, `{ header = "..." }`, `{ separator = true }`), `value` (state; default its own), `on_select(key)`, `kind` (`"modal"` default: slides over a scrim; `"standard"`: the plain sheet), `open` (state; modal only: whether it is shown) |
 | `open_navigation_drawer(opts)` | `items` (required), `value` (state; default its own), `on_select(key)`, `window`, as `navigation_drawer`. Pressing the scrim closes it |
 
 #### navigation/fade_through.lua (`fade_through`)
@@ -346,8 +349,8 @@ An 18 px box in a 40 px state layer; the tick and dash draw out.
 
 | Function | opts |
 | :--- | :--- |
-| `checkbox(id, opts)` | `value` (state `true`, `false` or `"indeterminate"`; default own, `false`; a click sets `true`, or `false` when it was `true`), `label`, `error` (signal), `disabled` (signal), `on_change(value)` |
-| `checkbox_group(id, opts)` | `items` (labels; required), `label` (the parent's), `value` (state: a set `{ [label] = true }`; default own, the first item), `error`, `disabled`, `on_change(set)`. The parent is checked when all are, indeterminate when some are; clicking it checks or clears all |
+| `checkbox(id, opts)` | `value` (state `true`, `false` or `"mixed"`; default own, `false`; a click sets `true`, or `false` when it was `true`), `label`, `name` (accessible name), `error` (signal), `disabled` (signal), `on_change(value)` |
+| `checkbox_group(id, opts)` | `items` (labels; required), `label` (the parent's), `value` (state: a set `{ [label] = true }`; default own, the first item), `error`, `disabled`, `on_change(set)`. The parent is checked when all are, mixed when some are; clicking it checks or clears all |
 
 #### selection/radio.lua (`radio_group`)
 
@@ -355,7 +358,7 @@ A column of 20 px rings whose dot grows on a spring.
 
 | Function | opts |
 | :--- | :--- |
-| `radio_group(id, opts)` | `options` (labels; required), `value` (state of the chosen label; default own, the first), `disabled` (signal), `on_change(label)` |
+| `radio_group(id, opts)` | `options` (labels; required), `value` (state of the chosen label; default own, the first), `disabled` (signal), `name` (accessible name of the group), `on_change(label)` |
 
 #### selection/switch.lua (`switch`)
 
@@ -363,7 +366,7 @@ A 52x32 track; the thumb grows and slides on a spring.
 
 | Function | opts |
 | :--- | :--- |
-| `switch(id, opts)` | `value` (state boolean; default own, `false`), `icons` (check on the thumb when on, close when off), `disabled` (signal), `label` (accessible name; with `detail` a settings row), `detail` (second line; the switch trails the row), `on_change(on)` |
+| `switch(id, opts)` | `value` (state boolean; default own, `false`), `icons` (check on the thumb when on, close when off), `disabled` (signal), `label` (with `detail` the row's title), `name` (accessible name; default the label), `detail` (second line; the switch trails the row), `on_change(on)` |
 
 #### selection/chips.lua (`chip`, `input_chips`, `suggestion_chips`)
 
@@ -381,16 +384,16 @@ Track in three segments around each 4 px handle, optional ticks, a value bubble 
 
 | Function | opts |
 | :--- | :--- |
-| `slider(id, opts)` | `kind` (`"continuous"` default, `"discrete"`, `"range"`, `"centered"`), `value` (state 0..1, the high thumb of a range; default own, `0.5`), `low` (state: the range's low thumb; default own, `0.25`), `size` (`"xs"` default, `"s"`, `"m"`, `"l"`, `"xl"`), `steps` (discrete; default 5), `width` (default 300), `format(v)` (bubble text; default percent) |
+| `slider(id, opts)` | `kind` (`"continuous"` default, `"discrete"`, `"range"`, `"centered"`), `min`, `max` (default 0 and 1), `step` (snaps from `min`; default continuous), `value` (state in `min`..`max`, the high thumb of a range; default own, the middle), `low` (state: the range's low thumb; default own, a quarter along), `name` (accessible name), `size` (`"xs"` default, `"s"`, `"m"`, `"l"`, `"xl"`), `steps` (discrete; default 5), `width` (default 300), `format(v)` (bubble text from the value in `min`..`max`; default percent) |
 
-#### selection/menu.lua (`open_menu`, `menu_open`, `context_menu`, `bind_shortcuts`, `menu_highlighted`, `pick_highlighted`, `dropdown`)
+#### selection/menu.lua (`open_menu`, `is_menu_open`, `context_menu`, `bind_shortcuts`, `menu_highlighted`, `pick_highlighted`, `dropdown`)
 
-One menu layer under its anchor or at a point, kept inside the window (flipped above or beside, slid back); a click outside, Escape or an item closes it. A selected item shows a check on a tinted row. Up, Down, Home, End, Enter, Right and Left (submenus) and typed letters steer it.
+One menu layer under its anchor or at a point, kept inside the window (flipped above or beside, slid back); a click outside, Escape or an item closes it. A checked item shows a check on a tinted row. Up, Down, Home, End, Enter, Right and Left (submenus) and typed letters steer it.
 
 | Function | opts |
 | :--- | :--- |
-| `open_menu(opts)` | `anchor` (a `geometry(name)` signal; the menu opens under it) or `at` (`{ x, y }` in the window: a context menu touching the pointer), `items` (required; `{ label, icon?, shortcut?, selected? (signal), disabled?, submenu? (items; one level, opens to the side), on_click? }`, `{ divider = true }` or `{ header = "..." }`), `on_pick(item)`, `width` (px or `"anchor"`; default 224), `align` (`"start"` default, `"end"`; `"end"` needs a px width), `vibrant` (Expressive tertiary container), `id` (names the opener, for `menu_open`), `window` Items may be `{ group = {...} }`, or `{ gap = true }` between runs, for an Expressive grouped menu of rounded containers. |
-| `menu_open(id)` | Signal: true while the menu opened with `id` shows |
+| `open_menu(opts)` | `anchor` (a `geometry(name)` signal; the menu opens under it) or `at` (`{ x, y }` in the window: a context menu touching the pointer), `items` (required; `{ label, icon?, shortcut?, checked? (boolean or signal), disabled?, submenu? (items; one level, opens to the side), on_click? }`, `{ separator = true }` or `{ header = "..." }`), `on_pick(item)`, `width` (px or `"anchor"`; default 224), `align` (`"start"` default, `"end"`; `"end"` needs a px width), `vibrant` (Expressive tertiary container), `id` (names the opener, for `is_menu_open`), `window` Items may be `{ group = {...} }`, or `{ gap = true }` between runs, for an Expressive grouped menu of rounded containers. |
+| `is_menu_open(id)` | Signal: true while the menu opened with `id` shows |
 | `context_menu(id, opts)` | Wraps `opts.child` so a right click opens `opts.items` (or a function building them) at the pointer; `on_pick`, `vibrant`, `window` |
 | `bind_shortcuts(items, window?)` | Makes the items' `shortcut` strings (`"Ctrl+Shift+N"`, or `⌘⇧N` with ⌘ as Ctrl) run their `on_click` while the window has the keyboard and no layer is open |
 | `menu_highlighted()`, `pick_highlighted(id?)` | The item the open menu highlights, or nil; pick it as Enter does (false when none, or not `id`'s menu) |
@@ -424,15 +427,16 @@ Outlined or filled field. Returns the node and a handle `{ value, clear, set }`:
 
 | Function | opts |
 | :--- | :--- |
-| `text_field(id, opts)` | `kind` (`"outlined"` default, `"filled"`), `label` (floats up while focused or filled; signal), `value` (state of the text; default its own), `container` (colour behind an outlined field, which the floating label cuts the outline with), `width` (number or `"fill"`, default `"fill"`), `leading`, `trailing` (icon names), `clear` (a clear button while typing), `prefix`, `suffix` (text, shown once raised; signals), `supporting` (helper text), `validate` (`fun(text)` returning an error message or nil, shown in place of the supporting text), `max_length` (caps the text; shows an `n/max` counter), `disabled`, `placeholder`. Read-only mode, used by `dropdown` and the pickers: `display` (signal of the shown text, replaces the input), `on_click`, `active` (signal styling the field as focused), `spin` (turn the trailing icon while active), `geometry` (a `geometry(name)` for the field); the handle then has only `value` |
+| `text_field(id, opts)` | `kind` (`"outlined"` default, `"filled"`), `label` (floats up while focused or filled; signal), `name` (accessible name; default the label), `value` (state of the text; default its own), `container` (colour behind an outlined field, which the floating label cuts the outline with), `width` (number or `"fill"`, default `"fill"`), `leading`, `trailing` (icon names), `clear` (a clear button while typing), `prefix`, `suffix` (text, shown once raised; signals), `supporting` (helper text), `validate` (`fun(text)` returning an error message or nil, shown in place of the supporting text), `max_length` (caps the text; shows an `n/max` counter), `disabled`, `placeholder`. Read-only mode, used by `dropdown` and the pickers: `display` (signal of the shown text, replaces the input), `on_click`, `active` (signal styling the field as focused), `spin` (turn the trailing icon while active), `geometry` (a `geometry(name)` for the field); the handle then has only `value` and `focus`; otherwise it is `{ value, focus, clear, set }` |
 
 #### inputs/search.lua (`search_bar`, `open_search_view`)
 
-A 56 px pill that opens a search view over suggestions, or an inline editable bar.
+A 56 px pill that opens a search view over suggestions (`search_bar`), or an inline editable one (`search_field`).
 
 | Function | opts |
 | :--- | :--- |
-| `search_bar(id, opts)` | `kind` (`"view"` default opens a search view; `"inline"` is an editable bar), `placeholder` (default `"Search"`), `on_change` (inline: on every edit, Escape sends `""`), `options` (view: suggestion strings, filtered by the query), `value` (view: state of the last pick, shown in the bar), `on_select` (view: a suggestion or Enter), `trailing` (view: icon, default `"mic"`), `max_length` (caps the typed query) |
+| `search_field(id, opts)` | `placeholder` (default `"Search"`), `name`, `on_change` (on every edit, Escape sends `""`), `max_length` (caps the typed query) |
+| `search_bar(id, opts)` | `placeholder` (default `"Search"`), `name`, `options` (suggestion strings, filtered by the query), `value` (state of the last pick, shown in the bar), `on_select` (a suggestion or Enter), `trailing` (icon, default `"mic"`), `max_length` (caps the typed query) |
 | `open_search_view(opts)` | `anchor` (the bar's `geometry(name)` signal; the view grows out of it), `options` (required), `value` (required: state of the last pick), `placeholder`, `max_length`, `on_select`. `search_bar` calls it for you |
 
 ## Input and keyboard additions
@@ -441,9 +445,9 @@ A 56 px pill that opens a search view over suggestions, or an inline editable ba
 | :--- | :--- |
 | `text_field` | `multiline` (grows between `min_lines` and `max_lines`, then scrolls), `submit_key`, `on_submit`, `format(text)`, `on_change(text)`, `autofocus`, `window`. Selection ink is primary at 30%. Right-clicking a text or search field opens an Edit menu (Cut, Copy, Paste, Select all); `m3.edit_click` is the helper |
 | Pickers | `open_date_picker { input = true }`: a typed mm/dd/yyyy field that toggles to the calendar (not with range or docked). `open_time_picker { input = true, h24 = true }` and `time_picker(id, { input, h24 })`: typed hour and minute fields |
-| Keyboard | Radio groups, tabs, segmented buttons, button groups, the navigation bar and `chip_group` move with the arrows and Home/End (radio and tabs also select). Sliders step with the arrows, leap with PageUp/PageDown, jump with Home/End |
-| `slider` | `vertical`, `icon`, `label` |
-| `segmented_button` | `multi`; options are strings or `{ label?, icon?, name? }` |
+| Keyboard | Radio groups, tabs, segmented controls, button groups, the navigation bar and `chip_group` move with the arrows and Home/End (radio and tabs also select). Sliders step with the arrows, leap with PageUp/PageDown, jump with Home/End |
+| `slider` | `vertical`, `icon`, `name` |
+| `segmented_control` | `multiple`, `on_change`; items are strings or `{ label?, icon?, value? }` |
 | `icon_button` | `width`: narrow, default or wide |
 | `carousel` | `layout`: `multi_browse`, `hero`, `uncontained` or `full_screen`; `item_width` |
 | `top_app_bar` | `kind = "flexible"`, `subtitle` |

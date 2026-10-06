@@ -10,7 +10,9 @@ Tabs with an indicator that springs to the selected tab's rect; `tab_content` sl
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `items` | `{ label, icon? }[]` | required | Tabs |
+| `items` | `{ name?, label, icon?, content? }[]` | required | Tabs; with any `content`, the selected tab's page shows under the bar |
+| `on_change` | `fun(key)` | none | After a tab is picked |
+| `name` | string | none | Accessible name |
 | `value` | state | required | Selected tab index (shared by both) |
 | `kind` | `"primary"\|"secondary"` | `"primary"` | 3px indicator under the content, or 2px across the tab |
 | `pages` | node[] | required | `tab_content`: one page per tab |
@@ -44,7 +46,7 @@ Pill items with section headers and dividers. In a frame it slides over a scrim;
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `items` | list | required | `{ label, icon, count? }`, `{ header = "Mail" }`, `{ divider = true }` |
+| `items` | list | required | `{ label, icon, count? }`, `{ header = "Mail" }`, `{ separator = true }` |
 | `value` | state | required | Selected item's `name` or position |
 | `on_select` | function(key) | none | Called after a selection |
 | `kind` | `"modal"\|"standard"` | `"modal"` | `"standard"` is the plain sheet, no scrim |

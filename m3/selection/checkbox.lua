@@ -29,11 +29,11 @@ local function stroke(points, shown, color)
 end
 
 ---@param id string
----@param status Signal<"unchecked"|"checked"|"indeterminate">
----@param opts { label?: string, error?: boolean|Signal<boolean>, disabled?: boolean|Signal<boolean> }
+---@param status Signal<"unchecked"|"checked"|"mixed">
+---@param opts { label?: string|Signal<string>, name?: string, error?: boolean|Signal<boolean>, disabled?: boolean|Signal<boolean> }
 ---@param toggle fun()
 ---@return Node
--- `status` is a signal of "unchecked", "checked" or "indeterminate"; `toggle` runs on click.
+-- `status` is a signal of "unchecked", "checked" or "mixed"; `toggle` runs on click.
 local function checkbox_node(id, status, opts, toggle)
     local err = sig(opts.error)
     local ticked = status:map(function(s) return s ~= "unchecked" end)
@@ -53,7 +53,7 @@ local function checkbox_node(id, status, opts, toggle)
         animate = { background = QUICK, border_color = QUICK },
         children = {
             stroke({ { 4, 9.5 }, { 7.5, 13 }, { 14, 5.5 } }, status:map(function(v) return v == "checked" and 1 or 0 end), mark),
-            stroke({ { 4, 9 }, { 14, 9 } }, status:map(function(v) return v == "indeterminate" and 1 or 0 end), mark),
+            stroke({ { 4, 9 }, { 14, 9 } }, status:map(function(v) return v == "mixed" and 1 or 0 end), mark),
         },
     }
     local node = interactive("cb_" .. id, {
@@ -62,7 +62,7 @@ local function checkbox_node(id, status, opts, toggle)
         radius = 20,
         opacity = disabled_look(opts.disabled),
         hittable = enabled(opts.disabled),
-        accessible_name = opts.label or id,
+        accessible_name = opts.name or type(opts.label) == "string" and opts.label or id,
         on_click = function()
             if not get(opts.disabled) then
                 toggle()
@@ -72,10 +72,11 @@ local function checkbox_node(id, status, opts, toggle)
     return opts.label and labelled(node, opts.label) or node
 end
 
--- Checkbox; unchecked, checked or indeterminate.
+-- Checkbox; unchecked, checked or mixed.
 ---@class m3.CheckboxOpts
----@field value? StateSignal<boolean|"indeterminate"> Default own, false. A click sets true, or false when it was true.
----@field label? string Text beside the box.
+---@field value? StateSignal<boolean|"mixed"> Default own, false. A click sets true, or false when it was true.
+---@field label? string|Signal<string> Text beside the box.
+---@field name? string Accessible name; default the label.
 ---@field error? boolean|Signal<boolean> Error colours.
 ---@field disabled? boolean|Signal<boolean>
 ---@field on_change? fun(value: boolean)
@@ -87,7 +88,7 @@ end
 function M.checkbox(id, opts)
     opts = opts or {}
     local value = opts.value or state("m3_cb_" .. id, false)
-    local status = value:map(function(v) return v == "indeterminate" and "indeterminate" or v and "checked" or "unchecked" end)
+    local status = value:map(function(v) return v == "mixed" and "mixed" or v and "checked" or "unchecked" end)
     return checkbox_node(id, status, opts, function()
         local next_value = value:get() ~= true
         value:set(next_value)
@@ -97,7 +98,7 @@ function M.checkbox(id, opts)
     end)
 end
 
--- A parent checkbox over `items` (labels): checked when all are, indeterminate when some are.
+-- A parent checkbox over `items` (labels): checked when all are, mixed when some are.
 ---@class m3.CheckboxGroupOpts
 ---@field items string[] Child labels. Required.
 ---@field label? string The parent's label.
@@ -124,7 +125,7 @@ function M.checkbox_group(id, opts)
         for _, label in ipairs(items) do
             on = on + ((set or {})[label] and 1 or 0)
         end
-        return on == 0 and "unchecked" or on == #items and "checked" or "indeterminate"
+        return on == 0 and "unchecked" or on == #items and "checked" or "mixed"
     end)
     local kids = {
         checkbox_node(id, status, opts, function()

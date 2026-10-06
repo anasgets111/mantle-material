@@ -56,10 +56,10 @@ local function save_contact()
     local entered = name.value:get() or ""
     local problem = contacts_data.add(entered, email.value:get(), note.value:get())
     if problem then
-        return m3.overlay.notify(problem)
+        return m3.notify { title = problem }
     end
     clear_form()
-    m3.overlay.notify(entered:match("^%s*(.-)%s*$") .. " added to Contacts")
+    m3.notify { title = entered:match("^%s*(.-)%s*$") .. " added to Contacts" }
 end
 
 return sec.page {
@@ -80,7 +80,7 @@ return sec.page {
                     spacing = 4,
                     children = {
                         m3.text("Filled, 2 rows and up", c.on_surface_variant, "label_medium"),
-                        (m3.text_field("bio_filled", { multiline = true, min_lines = 2, kind = "filled", label = "Message", supporting = "Return submits, Shift+Return breaks the line", submit_key = "return", width = 288, trailing = "send", on_submit = function(t) m3.overlay.notify("Sent " .. #t .. " characters") end })),
+                        (m3.text_field("bio_filled", { multiline = true, min_lines = 2, kind = "filled", label = "Message", supporting = "Return submits, Shift+Return breaks the line", submit_key = "return", width = 288, trailing = "send", on_submit = function(t) m3.notify { title = "Sent " .. #t .. " characters" } end })),
                     },
                 },
             },
@@ -95,8 +95,8 @@ return sec.page {
             align_h = "end",
             spacing = 8,
             children = {
-                m3.button("form_clear", { kind = "text", label = "Clear", on_click = clear_form }),
-                m3.button("form_save", { kind = "filled", label = "Save", on_click = save_contact }),
+                m3.button("form_clear", { kind = "plain", label = "Clear", on_click = clear_form }),
+                m3.button("form_save", { kind = "primary", label = "Save", on_click = save_contact }),
             },
         },
     }),

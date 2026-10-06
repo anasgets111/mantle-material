@@ -3,7 +3,7 @@ local m3 = require("m3")
 local sec = require("demo.section")
 
 local c = m3.theme.c
-local notify = m3.overlay.notify
+local notify = m3.notify
 
 local function section(title, detail, children, wide)
     table.insert(children, 1, m3.text(detail, c.on_surface_variant, "body_medium", { margin = { bottom = 4 }, wrap = "word", width = "fill" }))
@@ -57,7 +57,7 @@ return sec.page {
             children = {
                 variant("Unchecked", checkbox("plain", "Label", false)),
                 variant("Checked", checkbox("on", "Label", true)),
-                variant("Indeterminate", checkbox("mixed", "Label", "indeterminate")),
+                variant("Mixed", checkbox("mixed", "Label", "mixed")),
                 variant("Error", checkbox("err", "Label", false, { error = true })),
                 variant("Disabled", checkbox("dis", "Label", true, { disabled = true })),
             },
@@ -94,8 +94,8 @@ return sec.page {
         variant("Assist", row {
             spacing = 8,
             children = {
-                m3.chip("a1", { icon = "event", label = "Add to calendar", on_click = function() notify("Added to calendar") end }),
-                m3.chip("a2", { icon = "directions", label = "Directions", elevated = true, on_click = function() notify("Opening maps") end }),
+                m3.chip("a1", { icon = "event", label = "Add to calendar", on_click = function() notify { title = "Added to calendar" } end }),
+                m3.chip("a2", { icon = "directions", label = "Directions", elevated = true, on_click = function() notify { title = "Opening maps" } end }),
             },
         }),
         variant("Filter, elevated: the arrows move between chips", require("m3.selection.chips").chip_group("filters", {
@@ -109,8 +109,8 @@ return sec.page {
         variant("Suggestion: adds to the input chips; the arrows move between chips", m3.suggestion_chips("people", { options = { "Ada", "Alan", "Barbara", "Grace", "Ken", "Margaret", "Linus" }, value = people })),
     }),
     section("Segmented button", "Choose one range from two to five options. The arrows, Home and End move focus.", {
-        m3.segmented_button("seg", { options = { "Day", "Week", "Month" }, value = range, width = 96 }),
-        m3.segmented_button("seg_multi", { multi = true, options = { "Mon", "Tue", "Wed", "Thu", "Fri" }, value = weekdays, width = 72 }),
+        m3.segmented_control("seg", { items = { "Day", "Week", "Month" }, value = range, width = 96 }),
+        m3.segmented_control("seg_multi", { multiple = true, items = { "Mon", "Tue", "Wed", "Thu", "Fri" }, value = weekdays, width = 72 }),
     }),
     section("Sliders", "Pick a value on a range: continuous, discrete with ticks, two-thumb range, and centered.", {
         row { width = "fill", wrap = true, line_spacing = 24,
@@ -130,6 +130,7 @@ return sec.page {
                                 m3.slider("size_m", { size = "m", value = volume, width = 380 }),
                             },
                         }),
+                        variant("Scaled: min 16, max 30, step 1", m3.slider("scaled", { min = 16, max = 30, step = 1, value = state("m3_sel_temp", 21), width = 380 })),
                         variant("Range", m3.slider("range", { kind = "range", low = lo, value = hi, width = 380 })),
                         variant("Icon in the track, size m", m3.slider("icon", { size = "m", icon = "volume_up", value = tall_icon, width = 380 })),
                         m3.text("Focus a handle: arrows step, Page Up and Down leap, Home and End jump to the ends.", c.on_surface_variant, "body_small"),
@@ -164,7 +165,7 @@ return sec.page {
     section("Menus", "An exposed dropdown: a field that opens a menu of options right under it. A grouped menu is rounded containers apart.", {
         cluster({
             variant("Grouped (Expressive)", m3.button("menu_grouped", {
-                kind = "tonal",
+                kind = "secondary",
                 label = "Grouped menu",
                 icon = "menu_open",
                 props = { geometry = geometry("m3_demo_grouped") },
@@ -175,34 +176,34 @@ return sec.page {
                             { group = { { icon = "content_cut", label = "Cut" }, { icon = "content_copy", label = "Copy" }, { icon = "content_paste", label = "Paste" } } },
                             { group = { { icon = "select_all", label = "Select all" }, { icon = "find_in_page", label = "Find" } } },
                             { gap = true },
-                            { group = { { icon = "delete", label = "Delete", on_click = function() notify("Deleted") end } } },
+                            { group = { { icon = "delete", label = "Delete", on_click = function() notify { title = "Deleted" } end } } },
                         },
                     }
                 end,
             })),
-            variant("Outlined", m3.dropdown("fruit", { label = "Fruit", options = { "Apple", "Banana", "Cherry", "Mango", "Peach" }, value = state("m3_demo_fruit", "Banana") })),
-            variant("Filled", m3.dropdown("sort", { kind = "filled", label = "Sort by", options = { "Relevance", "Newest", "Rating" }, value = state("m3_demo_sort", "Newest") })),
+            variant("Outlined", m3.dropdown("fruit", { label = "Fruit", items = { "Apple", "Banana", "Cherry", "Mango", "Peach" }, value = state("m3_demo_fruit", "Banana") })),
+            variant("Filled", m3.dropdown("sort", { kind = "filled", label = "Sort by", items = { "Relevance", "Newest", "Rating" }, value = state("m3_demo_sort", "Newest") })),
         }),
     }),
     section("Date picker", "Pick a day or a range from a month grid, docked under a field or modal. The pencil icon in the modal switches to typed, masked dates.", {
         pickers {
             variant("Docked", m3.date_picker("date", { label = "Date" }), 56),
-            variant("Modal", m3.button("dp_modal", { kind = "tonal", label = "Pick a date", icon = "calendar_month", on_click = function() m3.open_date_picker({}) end }), 56),
-            variant("Modal range", m3.button("dp_range", { kind = "tonal", label = "Pick a range", icon = "date_range", on_click = function() m3.open_date_picker({ range = true }) end }), 56),
+            variant("Modal", m3.button("dp_modal", { kind = "secondary", label = "Pick a date", icon = "calendar_month", on_click = function() m3.open_date_picker({}) end }), 56),
+            variant("Modal range", m3.button("dp_range", { kind = "secondary", label = "Pick a range", icon = "date_range", on_click = function() m3.open_date_picker({ range = true }) end }), 56),
         },
         pickers {
-            variant("Typed date", m3.button("dp_input", { kind = "tonal", label = "Enter a date", icon = "edit", on_click = function() m3.open_date_picker({ input = true }) end }), 56),
-            variant("Typed range: end not before start", m3.button("dp_range_input", { kind = "tonal", label = "Enter a range", icon = "edit_calendar", on_click = function() m3.open_date_picker({ range = true, input = true }) end }), 56),
+            variant("Typed date", m3.button("dp_input", { kind = "secondary", label = "Enter a date", icon = "edit", on_click = function() m3.open_date_picker({ input = true }) end }), 56),
+            variant("Typed range: end not before start", m3.button("dp_range_input", { kind = "secondary", label = "Enter a range", icon = "edit_calendar", on_click = function() m3.open_date_picker({ range = true, input = true }) end }), 56),
         },
     }, WIDE),
     section("Time picker", "Drag the dial: the hour first, then the minutes. The keyboard icon switches to typed hour and minute fields.", {
         pickers {
             variant("Field, 12 h dial", m3.time_picker("time", { label = "Time" }), 56),
             variant("Field, 24 h dial", m3.time_picker("time24", { label = "24 h", h24 = true }), 56),
-            variant("Modal dial", m3.button("tp_open", { kind = "tonal", label = "Pick a time", icon = "schedule", on_click = function() m3.open_time_picker({}) end }), 56),
+            variant("Modal dial", m3.button("tp_open", { kind = "secondary", label = "Pick a time", icon = "schedule", on_click = function() m3.open_time_picker({}) end }), 56),
         },
         pickers {
-            variant("Typed, AM or PM", m3.button("tp_input", { kind = "tonal", label = "Enter a time", icon = "keyboard", on_click = function() m3.open_time_picker({ input = true }) end }), 56),
+            variant("Typed, AM or PM", m3.button("tp_input", { kind = "secondary", label = "Enter a time", icon = "keyboard", on_click = function() m3.open_time_picker({ input = true }) end }), 56),
             variant("Field, typed 24 h: 24 or 60 blocks OK", m3.time_picker("time24i", { label = "24 h input", h24 = true, input = true }), 56),
         },
     }, WIDE),

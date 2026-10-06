@@ -45,7 +45,7 @@ function M.navigation_rail(id, opts)
         local kids = {}
         if opts.menu then
             kids[1] = icon_button(id .. "_menu", {
-                kind = "standard",
+                kind = "plain",
                 icon = wide and "menu_open" or "menu",
                 on_click = function() expanded:set(not wide) end,
                 props = wide and { margin = { left = 8 } } or { align_h = "center" },

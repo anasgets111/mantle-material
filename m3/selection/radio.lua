@@ -16,6 +16,8 @@ local M = {}
 ---@field options string[] Labels. Required.
 ---@field value? StateSignal<string> The chosen label; default own, the first option.
 ---@field disabled? boolean|Signal<boolean>
+---@field horizontal? boolean A row instead of a column.
+---@field name? string Accessible name of the group.
 ---@field on_change? fun(label: string)
 ---@field [string] "no such property"
 
@@ -33,7 +35,7 @@ function M.radio_group(id, opts)
         end
     end
     -- The arrows move focus and choose, as a native radio group.
-    local bind = keys.roving("radio_" .. id, #opts.options, { axis = "vertical", on_move = function(i) choose(opts.options[i]) end })
+    local bind = keys.roving("radio_" .. id, #opts.options, { axis = opts.horizontal and "horizontal" or "vertical", on_move = function(i) choose(opts.options[i]) end })
     local kids = {}
     for i, option in ipairs(opts.options) do
         local on = value:map(function(v) return v == option end)
@@ -69,7 +71,7 @@ function M.radio_group(id, opts)
             on_click = function() choose(option) end,
         }), pick(on, "primary", "on_surface"), ring), option)
     end
-    return column { children = kids }
+    return (opts.horizontal and row or column) { accessible_name = opts.name, children = kids }
 end
 
 return M

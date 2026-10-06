@@ -5,7 +5,8 @@
 | Component | What it is |
 | :--- | :--- |
 | `text_field` | Outlined or filled field with a floating label, validation, supporting text, counter, affixes, icons and clear |
-| `search_bar` | A 56 px pill (elevation 3) that opens a search view over suggestions, or an inline editable bar |
+| `search_field` | An inline editable search pill (56 px, elevation 3) |
+| `search_bar` | A 56 px pill (elevation 3) that opens a search view over suggestions |
 | `open_search_view` | The search view layer, growing out of its bar |
 
 ## text_field
@@ -16,6 +17,7 @@
 | :--- | :--- | :--- | :--- |
 | `kind` | `"outlined"`, `"filled"` | `"outlined"` | Variant |
 | `label` | string | none | Floats up while focused or filled |
+| `name` | string | label | Accessible name |
 | `value` | state string | own | The text |
 | `container` | colour | `surface_container` | Colour behind an outlined field, which the floating label cuts the outline with |
 | `width` | number or `"fill"` | `"fill"` | Field width |
@@ -30,28 +32,36 @@
 
 Read-only mode, used by `dropdown` and the pickers: `display` (a signal of the shown text, replaces the input), `on_click`, `active` (a signal that styles the field as focused), `spin` (turn the trailing icon while active), `geometry` (a `geometry(name)` for the field).
 
-Handle: `{ value, clear, set }`. `value` is the text signal, `clear()` empties the field, `set(text)` replaces it (changing the state alone does not update the typed draft). A read-only field has only `value`.
+Handle: `{ value, focus, clear, set }`. `value` is the text signal, `focus()` takes keyboard focus, `clear()` empties the field, `set(text)` replaces it (changing the state alone does not update the typed draft). A read-only field has only `value`.
 
 ```lua
 local field, email = m3.text_field("email", { label = "Email", leading = "mail", clear = true, validate = is_email })
-m3.button("reset", { label = "Reset", on_click = email.clear })
+m3.button("reset", { kind = "primary", label = "Reset", on_click = email.clear })
 ```
+
+## search_field
+
+| Field | Type | Default | Meaning |
+| :--- | :--- | :--- | :--- |
+| `placeholder` | string | `"Search"` | Hint |
+| `name` | string | placeholder | Accessible name |
+| `on_change` | `fun(text)` | none | On every edit; Escape sends `""` |
+| `max_length` | number | none | Caps the typed query |
 
 ## search_bar
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `kind` | `"view"`, `"inline"` | `"view"` | `"view"` opens a search view; `"inline"` is an editable bar |
-| `placeholder` | string | `"Search"` | Hint and accessible name |
-| `on_change` | `fun(text)` | none | Inline: on every edit; Escape sends `""` |
-| `options` | string list | `{}` | View: suggestions, filtered by the query |
-| `value` | state string | own | View: the last pick, shown in the bar |
-| `on_select` | `fun(text)` | none | View: a suggestion or Enter |
-| `trailing` | icon name | `"mic"` | View: icon at the end |
+| `placeholder` | string | `"Search"` | Hint |
+| `name` | string | placeholder | Accessible name |
+| `options` | string list | `{}` | Suggestions, filtered by the query |
+| `value` | state string | own | The last pick, shown in the bar |
+| `on_select` | `fun(text)` | none | A suggestion or Enter |
+| `trailing` | icon name | `"mic"` | Icon at the end |
 | `max_length` | number | none | Caps the typed query |
 
 ```lua
-m3.search_bar("contacts", { kind = "inline", placeholder = "Search contacts", on_change = function(t) query:set(t) end })
+m3.search_field("contacts", { placeholder = "Search contacts", on_change = function(t) query:set(t) end })
 m3.search_bar("people", { options = { "Ada", "Alan" }, on_select = print })
 ```
 

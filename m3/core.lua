@@ -38,11 +38,11 @@ local merge = M.merge
 
 ---@param content string|Signal<string>
 ---@param color string|Signal<string>
----@param style? string A `theme.type` key; default "body_medium".
+---@param style? string A `theme.type` key; default "body".
 ---@param props? table
 ---@return Node
 function M.text(content, color, style, props)
-    local t = theme.type[style or "body_medium"]
+    local t = theme.type[style or "body"]
     return text(merge({
         content = content,
         foreground = color,
@@ -55,7 +55,19 @@ function M.text(content, color, style, props)
     }, props))
 end
 
--- Icons are Material Symbols, M3's own icon font: `name` is the symbol's ligature, e.g. "star".
+-- The unified API's shared icon names, each to its Material Symbols ligature.
+local SHARED_ICONS = {
+    more = "more_horiz", more_vertical = "more_vert", heart = "favorite", copy = "content_copy", paste = "content_paste",
+    cut = "content_cut", file = "insert_drive_file", document = "description", user = "person", bell = "notifications",
+    unlock = "lock_open", eye = "visibility", eye_off = "visibility_off", play = "play_arrow", volume = "volume_up",
+    camera = "photo_camera", calendar = "calendar_month", clock = "schedule", location = "location_on", attach = "attach_file",
+    filter = "filter_list", grid = "grid_view", chevron_down = "keyboard_arrow_down", chevron_up = "keyboard_arrow_up",
+    external_link = "open_in_new",
+}
+local function ligature(name) return SHARED_ICONS[name] or name end
+
+-- Icons are Material Symbols, M3's own icon font: `name` is a shared icon name (`SHARED_ICONS`), else
+-- the symbol's ligature, e.g. "star".
 -- `props.filled` (boolean or signal) switches to the filled style through the FILL axis.
 ---@param name string|Signal<string>
 ---@param color string|Signal<string>
@@ -71,7 +83,7 @@ function M.icon(name, color, size, props)
     props.filled = nil
     props.font_variations = (filled == nil or type(filled) == "boolean") and axes(filled) or filled:map(axes)
     return text(merge({
-        content = name,
+        content = type(name) == "string" and ligature(name) or name:map(ligature),
         font = "Material Symbols Rounded",
         font_size = size or 24,
         foreground = color,
@@ -80,22 +92,18 @@ function M.icon(name, color, size, props)
     }, props))
 end
 
--- M3's focus indicator on a node that takes Tab focus: a 3dp `secondary` ring while keyboard focus is
--- on it (`focus_visible`), as `shadows` layers over the node's own `props.shadows`.
--- not in the spec: the ring hugs the shape. Engine gap: a shadow layer can only paint, not erase, so no layer
--- stack leaves the spec's 2dp gap clear on any background; it needs an outline offset or an erasing blend.
+-- M3's focus indicator on a node that takes Tab focus: a 3dp `secondary` ring 2dp outside its shape
+-- while keyboard focus is on it (`focus_visible`). A clipping parent needs 5dp of room around it.
 ---@param name string
 ---@param props table
 function M.focusable(name, props)
-    local base = props.shadows
-    local inputs = { focus_visible("m3_fv_" .. name), theme.scheme, type(base) == "userdata" and base or nil }
-    local fixed = type(base) == "table" and base or {}
-    props.focus_visible = inputs[1]
+    local on = focus_visible("m3_fv_" .. name)
+    props.focus_visible = on
     props.focus_ring = false
-    props.shadows = computed(inputs, function(on, s, own)
-        local list = own or fixed
-        return on and { { color = s.secondary, spread = 3 }, table.unpack(list) } or list
+    props.ring = computed({ on, theme.scheme }, function(f, s)
+        return f and { width = 3, color = s.secondary, offset = 2 } or nil
     end)
+    props.animate = merge({ ring = { duration = 150, easing = "out_quad" } }, props.animate)
 end
 
 -- Dims a node to M3's 38% and stops it taking the pointer while `props.disabled` (a boolean or a

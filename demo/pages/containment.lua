@@ -4,7 +4,7 @@ local section = require("demo.section")
 local contacts_data = require("demo.contacts")
 
 local c, FADE = m3.theme.c, m3.theme.motion.fade
-local notify = m3.overlay.notify
+local notify = m3.notify
 
 local WALLS = mantle.config_dir .. "/demo/wallpapers/"
 local PHOTOS = {
@@ -21,10 +21,12 @@ local function contact_row(person)
     return m3.list_item("contact_" .. person.name, {
         lines = { person.name, person.detail },
         leading = { avatar = person.name:sub(1, 1) },
-        trailing = { node = m3.icon_button("delete_" .. person.name, { kind = "standard", icon = "delete", props = { align_v = "center" }, on_click = function() contacts_data.remove(person) end }) },
+        trailing = { node = m3.icon_button("delete_" .. person.name, { kind = "plain", icon = "delete", props = { align_v = "center" }, on_click = function() contacts_data.remove(person) end }) },
         animated = true,
     })
 end
+
+local popover_anchor = geometry("m3_demo_popover")
 
 local function block(title, description, children, wide)
     table.insert(children, 1, m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" }))
@@ -60,13 +62,13 @@ local TEXT3 = "Supporting text that runs long enough to wrap onto a second line 
 
 
 local function trigger(id, label, icon_name, on_click)
-    return m3.button(id, { kind = "tonal", label = label, icon = icon_name, on_click = on_click })
+    return m3.button(id, { kind = "secondary", label = label, icon = icon_name, on_click = on_click })
 end
 
 local function card_actions(id, headline, kind)
     return {
-        m3.button(id .. "_save", { kind = "text", label = "Save", on_click = function() notify("Saved " .. headline) end }),
-        m3.button(id .. "_share", { kind = kind == "filled" and "tonal" or "outlined", label = "Share", on_click = function() notify("Shared " .. headline) end }),
+        m3.button(id .. "_save", { kind = "plain", label = "Save", on_click = function() notify { title = "Saved " .. headline } end }),
+        m3.button(id .. "_share", { kind = kind == "filled" and "secondary" or "outlined", label = "Share", on_click = function() notify { title = "Shared " .. headline } end }),
     }
 end
 
@@ -78,7 +80,7 @@ local function photo_card(kind, index, headline, subhead, supporting)
         subhead = subhead,
         supporting = supporting,
         actions = card_actions("card_" .. kind, headline, kind),
-        on_click = function() notify(headline .. " opened") end,
+        on_click = function() notify { title = headline .. " opened" } end,
     })
 end
 
@@ -103,14 +105,14 @@ local function event_content()
 end
 
 local function share_item(icon_name, label)
-    return { icon = icon_name, label = label, on_click = function() notify(label) end }
+    return { icon = icon_name, label = label, on_click = function() notify { title = label } end }
 end
 
 local share_items = { share_item("link", "Copy link"), share_item("mail", "Send by email"), share_item("bookmark", "Save to collection"), share_item("print", "Print") }
 
 return section.page {
     block("Lists", "Rows of related text and actions. Search filters; delete asks first.", {
-        m3.search_bar("contacts_search", { kind = "inline", placeholder = "Search contacts", on_change = function(text) contacts_data.query:set(text) end }),
+        m3.search_field("contacts_search", { placeholder = "Search contacts", on_change = function(text) contacts_data.query:set(text) end }),
         rect {
             width = "fill",
             radius = 12,
@@ -118,7 +120,7 @@ return section.page {
             background = c.surface,
             animate = { background = FADE },
             children = {
-                m3.list("contacts", { height = 432, source = contacts_data.shown, query = contacts_data.query, search = function(person) return person.name .. " " .. person.detail end, key = function(person) return person.name end, item = contact_row }),
+                m3.list("contacts", { height = 432, items = contacts_data.shown, query = contacts_data.query, search = function(person) return person.name .. " " .. person.detail end, key = function(person) return person.name end, row = contact_row }),
             },
         },
     }),
@@ -232,23 +234,37 @@ return section.page {
             spacing = 8,
             children = {
                 trigger("open_side", "Modal side sheet", "right_panel_open", function()
-                    m3.open_side_sheet { title = "Library settings", content = side_content, on_confirm = function() notify("Settings saved") end }
+                    m3.open_side_sheet { title = "Library settings", content = side_content, on_confirm = function() notify { title = "Settings saved" } end }
                 end),
                 trigger("open_side_std", "Standard side sheet", "side_navigation", function()
-                    m3.open_side_sheet { title = "Library settings", modal = false, content = side_content, on_confirm = function() notify("Settings saved") end }
+                    m3.open_side_sheet { title = "Library settings", modal = false, content = side_content, on_confirm = function() notify { title = "Settings saved" } end }
                 end),
             },
         },
+    }),
+    block("Popover", "A card anchored to a control: it opens below it, flips above when there is no room, and slides to stay inside the window.", {
+        m3.button("open_popover", {
+            kind = "secondary",
+            label = "Open popover",
+            icon = "info",
+            props = { geometry = popover_anchor },
+            on_click = function()
+                m3.open_popover { anchor = popover_anchor, content = m3.text("Anchored to the button that opened it.", c.on_surface, "body", { wrap = "word", width = "fill" }) }
+            end,
+        }),
     }),
     block("Dialogs", "Basic dialog for a decision; full-screen dialog for a task that needs the whole window.", {
         row {
             spacing = 8,
             children = {
                 trigger("open_dialog", "Basic dialog", "chat", function()
-                    m3.overlay.ask({ icon = "delete", title = "Discard draft?", body = "Your draft and its attachments will be deleted.", confirm = "Discard" }, function() notify("Draft discarded") end)
+                    m3.open_dialog { icon = "delete", title = "Discard draft?", message = "Your draft and its attachments will be deleted.", buttons = {
+                        { label = "Cancel" },
+                        { label = "Discard", kind = "destructive", on_click = function() notify { title = "Draft discarded" } end },
+                    } }
                 end),
                 trigger("open_fs", "Full-screen dialog", "fullscreen", function()
-                    m3.open_fullscreen_dialog { title = "New event", content = event_content, on_confirm = function() notify("Event saved") end }
+                    m3.open_fullscreen_dialog { title = "New event", content = event_content, on_confirm = function() notify { title = "Event saved" } end }
                 end),
             },
         },

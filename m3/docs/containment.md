@@ -11,6 +11,8 @@ Layer openers are `m3.open_<thing>(opts)`; Escape and `m3.overlay.close_all()` c
 | `m3.carousel` | Multi-browse image carousel that reflows continuously as the wheel scrolls it |
 | `m3.divider` | 1px rule, full, inset or middle-inset, horizontal or vertical |
 | `m3.open_bottom_sheet` | Modal bottom sheet; drag the handle down to dismiss |
+| `m3.open_sheet` | A bottom sheet, or with `side = "side"` a side sheet: `{ content, title?, width?, side? }` |
+| `m3.open_popover` | A card anchored to a control or a point |
 | `m3.open_side_sheet` | Modal side sheet with cancel and confirm |
 | `m3.open_fullscreen_dialog` | Full-window dialog closed by its own action |
 
@@ -28,7 +30,7 @@ Layer openers are `m3.open_<thing>(opts)`; Escape and `m3.overlay.close_all()` c
 
 ```lua
 m3.card("trip", { kind = "filled", media = "/path/photo.jpg", headline = "Cabin", supporting = "Winter retreat",
-    actions = { m3.button("trip_save", { kind = "text", label = "Save" }) } })
+    actions = { m3.button("trip_save", { kind = "plain", label = "Save" }) } })
 ```
 
 ## list_item
@@ -49,9 +51,9 @@ m3.list_item("mail", { lines = { "Ada", "Engine notes" }, leading = { avatar = "
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `source` | list signal | required | Entries |
-| `key` | `fn(entry) -> string` | required | Stable identity for move and exit |
-| `item` | `fn(entry) -> node` | required | Usually a `list_item` with `animated = true` |
+| `items` | array or list signal | required | The items |
+| `key` | `fn(item) -> string` | required | Stable identity for move and exit |
+| `row` | `fn(item, emphasized, selected) -> node` | required | Usually a `list_item` with `animated = true`; both signals stay false (no selection in this list) |
 | `height`, `width` | number or `"fill"` | none, `"fill"` | Size; scrolls inside |
 
 ## carousel
@@ -79,6 +81,8 @@ m3.carousel("gallery", { items = { { image = "/a.jpg", label = "A" }, { image = 
 
 | Opener | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- | :--- |
+| `open_sheet` | `content`, `title`, `width`, `side` | as below | `"bottom"` | `side = "side"` opens the side sheet; `width` default 640 (bottom) or 400 (side) |
+| `open_popover` | `anchor` or `at`, `content`, `edge`, `width`, `window` | geometry signal or `{ x, y }`; node or fn; `"bottom"\|"top"\|"left"\|"right"`; number | `"bottom"`, 280 | Surface-container card, elevation 2; flips to the opposite side when only that has room, and slides to stay inside the window |
 | `open_bottom_sheet` | `title` | string | none | Heading |
 | | `items` | `{ icon, label, on_click }[]` | none | Rows that close the sheet, then run |
 | | `content` | nodes or fn returning nodes | none | Extra body |
@@ -92,20 +96,19 @@ m3.open_bottom_sheet { title = "Share", items = { { icon = "link", label = "Copy
 m3.open_side_sheet { title = "Settings", content = function() return { m3.text("Hi", m3.theme.c.on_surface) } end }
 ```
 
-## Basic dialog: `m3.overlay.ask`
+## Basic dialog: `m3.open_dialog`
 
-`m3.overlay.ask({ icon?, title, body?, actions?, window? })` shows a basic dialog over a 32% scrim; the scrim or Escape dismisses it.
+`m3.open_dialog({ icon?, title, message?, buttons?, window? })` shows a basic dialog over a 32% scrim; the scrim or Escape dismisses it.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `title` | string | required | Headline |
 | `icon` | string | none | Material Symbols name; centres the title |
-| `body` | string or node | none | Supporting text, or any node; scrolls when taller than the window allows |
-| `actions` | `{ label, kind?, on_click? }[]` | Cancel | Buttons at the end of the row. `kind` is `"text"` (default), `"tonal"` or `"filled"`; each closes the dialog, then runs `on_click` |
-| `confirm` | string | none | Shorthand: adds a trailing action that runs `ask`'s second argument |
+| `message` | string or node | none | Supporting text, or any node; scrolls when taller than the window allows |
+| `buttons` | `{ label, kind?, on_click? }[]` | OK | Buttons at the end of the row. `kind` is `"plain"` (default), `"primary"` or `"destructive"`; each closes the dialog, then runs `on_click` |
 
 ```lua
-m3.overlay.ask({ icon = "delete", title = "Delete draft?", body = "It can't be restored.", actions = {
-    { label = "Keep" }, { label = "Delete", kind = "filled", on_click = delete },
+m3.open_dialog({ icon = "delete", title = "Delete draft?", message = "It can't be restored.", buttons = {
+    { label = "Keep" }, { label = "Delete", kind = "destructive", on_click = delete },
 } })
 ```

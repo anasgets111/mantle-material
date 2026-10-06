@@ -1,7 +1,7 @@
 # Communication
 
-`m3.badge`, `m3.linear_progress`, `m3.circular_progress`, `m3.loading_indicator`, `m3.shape`,
-`m3.tooltip`, `m3.rich_tooltip`. Snackbars are `m3.overlay.notify(message, opts)`. Shape
+`m3.badge`, `m3.progress_bar`, `m3.progress_ring`, `m3.spinner`, `m3.shape`,
+`m3.tooltip`, `m3.rich_tooltip`. Snackbars are `m3.notify { title, body?, icon?, action?, on_action?, close?, window? }` (`title` is the message, `body` goes under it). Shape
 geometry is `m3.shapes` (`NAMES`, `commands(name, size)`).
 
 ## badge
@@ -32,7 +32,7 @@ m3.badge("inbox_badge", { count = unread })
 m3.badged("inbox", { child = m3.icon("mail", m3.theme.c.on_surface_variant, 24), count = unread })
 ```
 
-## linear_progress / circular_progress
+## progress_bar / progress_ring
 
 Determinate or indeterminate, flat or wavy, after Compose's M3 values. Linear is 4px tall (10px wavy: 40px wavelength, 3px amplitude); circular sits in a 48px box (a 40px ring, or a wavy one with 1.6px amplitude and nine waves). Track gap and stop dot are 4px. A wave flattens at or below 10% and from 95%, crossfading over 500 ms. Indeterminate linear runs two lines on 1750 ms head and tail curves; circular grows its arc from 10% to 87% while it turns.
 
@@ -44,11 +44,11 @@ Determinate or indeterminate, flat or wavy, after Compose's M3 values. Linear is
 | `width` | number | 240 | Linear only |
 
 ```lua
-m3.linear_progress("upload", { value = progress, wavy = true, width = 280 })
-m3.circular_progress("spin", { indeterminate = true })
+m3.progress_bar("upload", { value = progress, wavy = true, width = 280 })
+m3.progress_ring("spin", { indeterminate = true })
 ```
 
-## loading_indicator
+## spinner
 
 Expressive 38px shape that morphs to the next of seven every 650 ms on a spring, turning 90 degrees per morph and once per 4.666 s.
 
@@ -57,7 +57,7 @@ Expressive 38px shape that morphs to the next of seven every 650 ms on a spring,
 | `contained` | boolean | `false` | Sits on a 48px primary container circle |
 
 ```lua
-m3.loading_indicator("busy", { contained = true })
+m3.spinner("busy", { contained = true })
 ```
 
 ## shape

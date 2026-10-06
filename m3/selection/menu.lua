@@ -1,5 +1,5 @@
 -- M3 menu: one layer under its anchor (or at the pointer) over a transparent scrim that closes it on
--- any click outside, kept inside the host. A selected item shows a check on a tinted row; an item
+-- any click outside, kept inside the host. A checked item shows a check on a tinted row; an item
 -- with a `submenu` opens it to the side. Arrow keys, Home, End, Enter, Escape and type-ahead steer it.
 -- Overlay callbacks and anchors cannot live in named state, so the open spec stays in a Lua local
 -- that the layer builder reads.
@@ -69,7 +69,7 @@ local function flatten(entries)
 end
 
 local function selectable(item)
-    return not (item.divider or item.header or item.disabled or item.gap)
+    return not (item.separator or item.header or item.disabled or item.gap)
 end
 
 local function pick(item)
@@ -98,14 +98,19 @@ end
 -- One row. `active` is a boolean signal for the keyboard highlight, `open` marks a submenu parent
 -- whose submenu is open; `on_enter` runs when the pointer arrives.
 local function menu_item(level, i, item, tone, columns, active, on_enter)
-    if item.divider then
+    if item.separator then
         return rect { width = "fill", height = 1, margin = { top = 8, bottom = 8 }, background = c.outline_variant }
     end
     if item.header then
         return row { width = "fill", height = 40, align_v = "center", padding = { left = 12, right = 12 }, children = { text(item.header, c[tone.sub], "title_small") } }
     end
     local live = selectable(item)
-    local fg = item.selected and theme.pick(item.selected, tone.on_pick, tone.fg) or c[tone.fg]
+    local checked = item.checked
+    if type(checked) == "boolean" then
+        local fixed = checked
+        checked = theme.scheme:map(function() return fixed end)
+    end
+    local fg = checked and theme.pick(checked, tone.on_pick, tone.fg) or c[tone.fg]
     local name = ("menu_item%d_%d"):format(level, i)
     local over = hover("m3_" .. name)
     local kids = {}
@@ -116,8 +121,8 @@ local function menu_item(level, i, item, tone, columns, active, on_enter)
     if item.shortcut then
         kids[#kids + 1] = text(item.shortcut, c[tone.sub], "label_large")
     end
-    if item.selected then
-        kids[#kids + 1] = icon("check", c[tone.on_pick], 24, { opacity = opacity_of(item.selected), animate = { opacity = QUICK, foreground = FADE } })
+    if checked then
+        kids[#kids + 1] = icon("check", c[tone.on_pick], 24, { opacity = opacity_of(checked), animate = { opacity = QUICK, foreground = FADE } })
     end
     if item.submenu then
         kids[#kids + 1] = icon("arrow_right", c[tone.sub], 24)
@@ -125,7 +130,7 @@ local function menu_item(level, i, item, tone, columns, active, on_enter)
     return interactive(name, {
         width = "fill",
         height = MENU.row,
-        background = item.selected and tint(item.selected, tone.pick) or nil,
+        background = checked and tint(checked, tone.pick) or nil,
         opacity = live and 1 or sel.DISABLED,
         geometry = item.submenu and geometry("m3_menu_row_" .. i) or nil,
         accessible_name = item.label,
@@ -395,11 +400,11 @@ end, {
 ---@field label? string
 ---@field icon? string
 ---@field shortcut? string Shown at the end, e.g. "Ctrl+N" or "⌘⇧N"; `bind_shortcuts` makes it work.
----@field selected? Signal<boolean> Check and tint while true.
+---@field checked? boolean|Signal<boolean> Check and tint while true.
 ---@field disabled? boolean
 ---@field submenu? m3.MenuItem[] Opens to the side; one level.
 ---@field on_click? fun()
----@field divider? boolean A separator line instead of a row.
+---@field separator? boolean A separator line instead of a row.
 ---@field header? string A group label instead of a row.
 ---@field group? m3.MenuItem[] Instead of a row: these items as one rounded container (Expressive); consecutive groups sit apart with a gap.
 ---@field gap? boolean Instead of a row: ends the group before it, so the menu's items form separate rounded containers.
@@ -414,7 +419,7 @@ end, {
 ---@field width? number|"anchor" Px, or the anchor's width; default 224.
 ---@field align? "start"|"end" Which edge of the anchor it lines up with; "end" needs a px width.
 ---@field vibrant? boolean The Expressive vibrant colours: a tertiary container.
----@field id? string Names the opener, for `menu_open`.
+---@field id? string Names the opener, for `is_menu_open`.
 ---@field window? string The window or panel it opens over; default `core.window`.
 ---@field [string] "no such property"
 
@@ -436,7 +441,7 @@ end
 -- A signal: true while the menu opened with `id` is showing.
 ---@param id string
 ---@return Signal<boolean>
-function M.menu_open(id)
+function M.is_menu_open(id)
     return computed({ menu_shown, menu_owner }, function(open, owner) return open and owner == id end)
 end
 
@@ -562,15 +567,17 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Exposed dropdown: a read-only text field that opens a menu of options right under it.
 
--- Exposed dropdown: a read-only field that opens a menu of `options`.
+-- Exposed dropdown: a read-only field that opens a menu of `items`.
 ---@class m3.DropdownOpts
----@field options string[] Required.
----@field label? string
----@field value? StateSignal<string> The chosen option; default own, the first.
+---@field items (string|{ label: string, value?: any, icon?: string })[] Required. A string is its own label and value; a table's `value` defaults to its label.
+---@field label? string|Signal<string> The floating label.
+---@field name? string Accessible name; default the label.
+---@field value? StateSignal<any> The chosen value; default own, the first item's.
 ---@field kind? "outlined"|"filled"
 ---@field container? string|Signal<string> Colour behind an outlined field.
 ---@field width? number Default 280.
----@field on_change? fun(option: string)
+---@field disabled? boolean|Signal<boolean>
+---@field on_change? fun(value: any)
 ---@field window? string The window or panel the menu opens over; default `core.window`.
 ---@field [string] "no such property"
 
@@ -578,17 +585,22 @@ end
 ---@param opts m3.DropdownOpts
 ---@return Node
 function M.dropdown(id, opts)
-    local value = opts.value or state("m3_dd_" .. id, opts.options[1])
+    local entries = {}
+    for i, item in ipairs(opts.items) do
+        entries[i] = type(item) == "table" and { label = item.label, icon = item.icon, value = item.value ~= nil and item.value or item.label } or { label = item, value = item }
+    end
+    local value = opts.value or state("m3_dd_" .. id, entries[1] and entries[1].value)
     local anchor = geometry("m3_dd_" .. id)
     local items = {}
-    for i, option in ipairs(opts.options) do
+    for i, entry in ipairs(entries) do
         items[i] = {
-            label = option,
-            selected = value:map(function(v) return v == option end),
+            label = entry.label,
+            icon = entry.icon,
+            checked = value:map(function(v) return v == entry.value end),
             on_click = function()
-                value:set(option)
+                value:set(entry.value)
                 if opts.on_change then
-                    opts.on_change(option)
+                    opts.on_change(entry.value)
                 end
             end,
         }
@@ -597,13 +609,22 @@ function M.dropdown(id, opts)
     return (text_field(id, {
         kind = opts.kind,
         label = opts.label,
+        name = opts.name,
         container = opts.container,
         width = opts.width or 280,
-        display = value,
+        disabled = opts.disabled,
+        display = value:map(function(v)
+            for _, entry in ipairs(entries) do
+                if entry.value == v then
+                    return entry.label
+                end
+            end
+            return ""
+        end),
         trailing = "arrow_drop_down",
         spin = true,
         geometry = anchor,
-        active = M.menu_open(owner),
+        active = M.is_menu_open(owner),
         on_click = function() M.open_menu({ id = owner, anchor = anchor, items = items, width = "anchor", window = opts.window }) end,
     }))
 end

@@ -178,7 +178,7 @@ local DRAWER_ITEMS = {
     { label = "Outbox", icon = "send" },
     { label = "Favourites", icon = "favorite" },
     { label = "Trash", icon = "delete" },
-    { divider = true },
+    { separator = true },
     { header = "Labels" },
     { label = "Family", icon = "label" },
     { label = "Work", icon = "label" },
@@ -197,7 +197,7 @@ local function drawer_demo(open)
                     padding = { left = 4 },
                     spacing = 4,
                     children = {
-                        m3.icon_button("drawer_menu", { kind = "standard", icon = "menu", on_click = function() open:set(true) end, props = { align_v = "center" } }),
+                        m3.icon_button("drawer_menu", { kind = "plain", icon = "menu", on_click = function() open:set(true) end, props = { align_v = "center" } }),
                         m3.text(selected:map(function(i) return DRAWER_ITEMS[i].label end), c.on_surface, "title_large"),
                     },
                 },
@@ -248,7 +248,7 @@ local drawer_card = card("Navigation drawer", "A modal drawer slides in over a s
     column {
         spacing = 16,
         children = {
-            m3.button("drawer_open", { kind = "tonal", label = "Open drawer", icon = "menu", on_click = function() drawer_open:set(true) end }),
+            m3.button("drawer_open", { kind = "secondary", label = "Open drawer", icon = "menu", on_click = function() drawer_open:set(true) end }),
             drawer_demo(drawer_open),
         },
     })
@@ -256,7 +256,7 @@ local rail_card = card("Navigation rail", "The app's own rail on the left is the
     column {
         spacing = 16,
         children = {
-            m3.button("rail_open", { kind = "tonal", label = "Expand rail", icon = "menu_open", on_click = function() rail_expanded:set(true) end }),
+            m3.button("rail_open", { kind = "secondary", label = "Expand rail", icon = "menu_open", on_click = function() rail_expanded:set(true) end }),
             rail_frame,
         },
     })

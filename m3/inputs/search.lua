@@ -1,8 +1,9 @@
--- M3 search: search_bar (inline, or a bar that opens a search view; open_search_view).
+-- M3 search: search_field (inline), and search_bar (a bar that opens a search view; open_search_view).
 -- See docs/inputs.md.
 local theme = require("m3.theme")
 local core = require("m3.core")
 local overlay = require("m3.overlay")
+local sel = require("m3.internal.selection")
 local icon_button = require("m3.actions.icon_button").icon_button
 local edit_click = require("m3.inputs.text_field").edit_click
 
@@ -94,7 +95,7 @@ overlay.layer("search", function()
                         spacing = 4,
                         padding = { left = 4, right = 4 },
                         children = {
-                            icon_button("search_back", { kind = "standard", icon = "arrow_back", on_click = function() overlay.close("search") end, props = { align_v = "center" } }),
+                            icon_button("search_back", { kind = "plain", icon = "arrow_back", on_click = function() overlay.close("search") end, props = { align_v = "center" } }),
                             textfield(core.merge({
                                 width = "fill",
                                 height = "fill",
@@ -117,7 +118,7 @@ overlay.layer("search", function()
                                 end,
                             }, field_props("m3_search_view", target))),
                             icon_button("search_clear", {
-                                kind = "standard",
+                                kind = "plain",
                                 icon = "close",
                                 on_click = function()
                                     target:set_text("")
@@ -173,15 +174,90 @@ function M.open_search_view(opts)
     overlay.open("search", nil, opts.window)
 end
 
--- A pill that opens a search view over `options`, or an inline editable bar.
----@class m3.SearchBarOpts
----@field kind? "view"|"inline" Default "view".
+-- An inline editable search pill.
+---@class m3.SearchFieldOpts
 ---@field placeholder? string Default "Search".
----@field on_change? fun(text: string) Inline: on every edit; Escape sends "".
----@field options? string[] View: suggestions.
----@field value? StateSignal<string> View: the last pick, shown in the bar.
----@field on_select? fun(text: string) View: a suggestion or Enter.
----@field trailing? string View: icon name, default "mic".
+---@field name? string Accessible name; default the placeholder.
+---@field label? string|Signal<string> Text above the pill.
+---@field value? StateSignal<string> The query; default its own.
+---@field width? number|"fill" Default "fill".
+---@field disabled? boolean|Signal<boolean> Dimmed to 38% and inert.
+---@field on_change? fun(text: string) On every edit; Escape sends "".
+---@field on_submit? fun(text: string) Enter; the field clears.
+---@field max_length? integer Caps the typed query.
+---@field [string] "no such property"
+
+---@param id string
+---@param opts? m3.SearchFieldOpts
+---@return Node node
+---@return m3.TextFieldHandle handle
+function M.search_field(id, opts)
+    opts = opts or {}
+    local placeholder = opts.placeholder or "Search"
+    local value = opts.value or state("m3_search_field_" .. id, "")
+    local target = focus_target("m3_search_in_" .. id)
+    local function set(t)
+        target:set_text(t)
+        value:set(t)
+    end
+    local pill = core.merge(rect {
+        width = opts.width or "fill",
+        opacity = sel.disabled_look(opts.disabled),
+        hittable = sel.enabled(opts.disabled),
+        height = 56,
+        radius = 28,
+        background = c.surface_container_high,
+        animate = { background = FADE },
+        children = {
+            row {
+                width = "fill",
+                height = "fill",
+                align_v = "center",
+                spacing = 16,
+                padding = { left = 16, right = 16 },
+                children = {
+                    icon("search", c.on_surface, 24),
+                    textfield(core.merge({
+                        width = "fill",
+                        height = "fill",
+                        font_size = 16,
+                        letter_spacing = theme.type.body_large[4],
+                        foreground = c.on_surface,
+                        placeholder = placeholder,
+                        placeholder_color = c.on_surface_variant,
+                        max_length = opts.max_length,
+                        accessible_name = opts.name or type(opts.label) == "string" and opts.label or placeholder,
+                        focus_ring = false,
+                        initial_text = value,
+                        disabled = opts.disabled,
+                        on_submit = opts.on_submit,
+                        on_change = function(t)
+                            value:set(t)
+                            if opts.on_change then
+                                opts.on_change(t)
+                            end
+                        end,
+                        on_cancel = function() if opts.on_change then opts.on_change("") end end,
+                    }, field_props("m3_search_in_" .. id, target))),
+                },
+            },
+        },
+    }, theme.elevation[3])
+    local node = pill
+    if opts.label then
+        node = column { width = opts.width or "fill", spacing = 4, children = { text(opts.label, c.on_surface_variant, "body_small"), pill } }
+    end
+    return node, { value = value, focus = function() target:request() end, clear = function() set("") end, set = set }
+end
+
+-- A pill that opens a search view over `options`.
+---@class m3.SearchBarOpts
+---@field placeholder? string Default "Search".
+---@field name? string Accessible name; default the placeholder.
+---@field options? string[] Suggestions.
+---@field value? StateSignal<string> The last pick, shown in the bar.
+---@field on_select? fun(text: string) A suggestion or Enter.
+---@field trailing? string Icon name, default "mic".
 ---@field max_length? integer Caps the typed query.
 ---@field [string] "no such property"
 
@@ -191,41 +267,6 @@ end
 function M.search_bar(id, opts)
     opts = opts or {}
     local placeholder = opts.placeholder or "Search"
-    if opts.kind == "inline" then
-        return core.merge(rect {
-            width = "fill",
-            height = 56,
-            radius = 28,
-            background = c.surface_container_high,
-            animate = { background = FADE },
-            children = {
-                row {
-                    width = "fill",
-                    height = "fill",
-                    align_v = "center",
-                    spacing = 16,
-                    padding = { left = 16, right = 16 },
-                    children = {
-                        icon("search", c.on_surface, 24),
-                        textfield(core.merge({
-                            width = "fill",
-                            height = "fill",
-                            font_size = 16,
-                            letter_spacing = theme.type.body_large[4],
-                            foreground = c.on_surface,
-                            placeholder = placeholder,
-                            placeholder_color = c.on_surface_variant,
-                            max_length = opts.max_length,
-                            accessible_name = placeholder,
-                            focus_ring = false,
-                            on_change = opts.on_change,
-                            on_cancel = function() if opts.on_change then opts.on_change("") end end,
-                        }, field_props("m3_search_in_" .. id, focus_target("m3_search_in_" .. id)))),
-                    },
-                },
-            },
-        }, theme.elevation[3])
-    end
     local value = opts.value or state("m3_search_" .. id, "")
     local anchor = geometry("m3_search_" .. id)
     local picked = value:map(function(r) return r ~= "" end)
@@ -235,7 +276,7 @@ function M.search_bar(id, opts)
         radius = 28,
         geometry = anchor,
         background = c.surface_container_high,
-        accessible_name = placeholder,
+        accessible_name = opts.name or placeholder,
         on_click = function()
             M.open_search_view({ anchor = anchor, options = opts.options or {}, value = value, placeholder = placeholder, max_length = opts.max_length, on_select = opts.on_select })
         end,

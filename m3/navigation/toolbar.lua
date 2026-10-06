@@ -32,7 +32,7 @@ function M.toolbar(id, opts)
     local kids = {}
     for i, action in ipairs(opts.actions or {}) do
         kids[i] = icon_button(("%s_%d"):format(id, i), {
-            kind = "standard",
+            kind = "plain",
             icon = action.icon,
             on_click = action.on_click,
             props = { align_v = "center", accessible_name = action.label },

@@ -1,18 +1,19 @@
 # Actions
 
 `m3.button`, `m3.icon_button`, `m3.fab`, `m3.extended_fab`, `m3.fab_menu`, `m3.button_group`,
-`m3.split_button`, `m3.segmented_button`. Buttons spring their corners smaller while pressed.
+`m3.split_button`, `m3.segmented_control`. Buttons spring their corners smaller while pressed.
 
 ## button
 
-Common button: five emphasis levels, five Expressive sizes, optional toggle.
+Common button: seven kinds (`tinted` looks as `secondary`), five Expressive sizes, optional toggle.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `kind` | `"filled"\|"tonal"\|"elevated"\|"outlined"\|"text"` | `"filled"` | Emphasis |
+| `kind` | `"primary"\|"secondary"\|"plain"\|"destructive"\|"tinted"\|"elevated"\|"outlined"` | `"primary"` | Emphasis; `destructive` is `error` / `on_error` |
 | `size` | `"xs"\|"s"\|"m"\|"l"\|"xl"` | `"s"` | Height 32 / 40 / 56 / 96 / 136 |
 | `shape` | `"round"\|"square"\|"toggle"` | `"round"` | `"toggle"` squares while selected; implied by `value` |
-| `label`, `icon` | string or signal | none | Content |
+| `label`, `icon` | string or signal | none | Content; `icon` is a shared icon name or a Material Symbols name |
+| `name` | string | none | Accessible name |
 | `value` | boolean state | none | Makes it a toggle; a click flips it |
 | `width` | number | content | Fixed width, content centred |
 | `props`, `icon_props` | table | none | Extra node props for the container / icon |
@@ -20,7 +21,7 @@ Common button: five emphasis levels, five Expressive sizes, optional toggle.
 
 ```lua
 local on = state("m3_fav", false)
-m3.button("fav", { kind = "tonal", label = "Favourite", icon = "favorite", value = on })
+m3.button("fav", { kind = "secondary", label = "Favourite", icon = "favorite", value = on })
 ```
 
 ## icon_button
@@ -29,12 +30,12 @@ One glyph in a square container; a toggle fills its glyph.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `kind` | `"standard"\|"filled"\|"tonal"\|"outlined"` | `"standard"` | Emphasis |
-| `size`, `shape`, `value`, `props`, `on_click` | as `button` | | |
+| `kind` | `"plain"\|"primary"\|"secondary"\|"outlined"` | `"plain"` | Emphasis |
+| `size`, `shape`, `value`, `props`, `on_click`, `name` | as `button` | | |
 | `icon` | string | required | Symbol name |
 
 ```lua
-m3.icon_button("share", { kind = "tonal", icon = "share", on_click = share })
+m3.icon_button("share", { kind = "secondary", icon = "share", on_click = share })
 ```
 
 ## fab / extended_fab
@@ -72,7 +73,7 @@ Related buttons in a row.
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `kind` | `"standard"\|"connected"` | `"standard"` | Standard: neighbours of a pressed button squish. Connected: one selection, inner corners small |
-| `button_kind` | button `kind` | `"tonal"` | Style of the buttons |
+| `button_kind` | button `kind` | `"secondary"` | Style of the buttons |
 | `items` | `{ label, icon?, on_click? }[]` | required | The buttons |
 | `value` | integer state | own state (1) | Connected: selected index |
 
@@ -86,7 +87,7 @@ A leading action plus a chevron that opens an overlay menu under the whole butto
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `kind` | button `kind` | `"filled"` | Style |
+| `kind` | button `kind` | `"primary"` | Style |
 | `label`, `icon`, `on_click` | | | The leading action |
 | `items` | menu items | required | As for `open_menu`: `{ label, icon, on_click }` |
 | `width` | number | 224 | Menu width |
@@ -95,16 +96,19 @@ A leading action plus a chevron that opens an overlay menu under the whole butto
 m3.split_button("send", { label = "Send", icon = "send", on_click = send, items = { { label = "Schedule", icon = "schedule_send" } } })
 ```
 
-## segmented_button
+## segmented_control
 
-One outlined control of two to five options; the selected one is tinted and checked.
+One outlined control of two to five segments; the selected one is tinted and checked.
 
 | Field | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `options` | string[] | required | Segment labels |
-| `value` | state | own state | Selected option |
+| `items` | `(string \| { label?, icon?, value? })[]` | required | Segments; the key is `value`, else the label, else the icon |
+| `multiple` | boolean | `false` | Several segments can be on; `value` is then a set `{ [key] = true }` |
+| `value` | state | own state | Selected key, or the set |
+| `on_change` | `fun(value)` | none | After a pick, with the new `value` |
+| `name` | string | none | Accessible name |
 | `width` | number | content | Per-segment width |
 
 ```lua
-m3.segmented_button("view", { options = { "Day", "Week", "Month" }, value = view, width = 96 })
+m3.segmented_control("view", { items = { "Day", "Week", "Month" }, value = view, width = 96 })
 ```

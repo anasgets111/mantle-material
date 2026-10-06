@@ -11,13 +11,14 @@ local get, disabled_look, enabled = sel.get, sel.disabled_look, sel.enabled
 
 local M = {}
 
--- Switch; with `label` and `detail` a settings row with the switch trailing.
+-- Switch; with a `label` a settings row, the text leading and the switch trailing.
 ---@class m3.SwitchOpts
 ---@field value? StateSignal<boolean> Default own, false.
 ---@field icons? boolean Check on the thumb when on, close when off.
 ---@field disabled? boolean|Signal<boolean>
----@field label? string Accessible name; with `detail` the row's title.
----@field detail? string Second line of the row.
+---@field label? string|Signal<string> The row's title.
+---@field name? string Accessible name; default the label.
+---@field detail? string|Signal<string> Second line under the label.
 ---@field on_change? fun(on: boolean)
 ---@field [string] "no such property"
 
@@ -49,7 +50,7 @@ function M.switch(id, opts)
         hover = over,
         opacity = disabled_look(opts.disabled),
         hittable = enabled(opts.disabled),
-        accessible_name = opts.label or id,
+        accessible_name = opts.name or type(opts.label) == "string" and opts.label or id,
         background = pick(value, "primary", "surface_container_highest"),
         on_drag = function(_, _, phase) pressed:set(phase ~= "end") end,
         border_width = on(0, 2),
@@ -94,7 +95,7 @@ function M.switch(id, opts)
             },
         },
     }
-    if not (opts.label and opts.detail) then
+    if not opts.label then
         return node
     end
     return row {
@@ -105,7 +106,7 @@ function M.switch(id, opts)
                 width = "fill",
                 spacing = 2,
                 align_v = "center",
-                children = { text(opts.label, c.on_surface, "body_large"), text(opts.detail, c.on_surface_variant, "body_medium") },
+                children = { text(opts.label, c.on_surface, "body_large"), opts.detail and text(opts.detail, c.on_surface_variant, "body_medium") or nil },
             },
             node,
         },

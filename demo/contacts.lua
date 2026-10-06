@@ -53,7 +53,7 @@ local function without(key)
 end
 
 function M.remove(person)
-    overlay.confirm_remove({ title = "Delete contact?", body = person.name .. " will be removed from your contacts.", message = person.name .. " deleted" }, function()
+    overlay.confirm_remove({ title = "Delete contact?", message = person.name .. " will be removed from your contacts.", removed = person.name .. " deleted" }, function()
         local gone = without()
         gone[person.name] = true
         removed:set(gone)

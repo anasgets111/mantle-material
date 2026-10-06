@@ -77,12 +77,15 @@ local SIZES = {
 }
 
 -- Colour roles per kind. `on` / `off` override the container while a toggle is selected or not.
+local SECONDARY = { bg = "secondary_container", fg = "on_secondary_container", on = { bg = "secondary", fg = "on_secondary" } }
 local BUTTON_TONES = {
-    filled = { bg = "primary", fg = "on_primary", off = { bg = "surface_container_highest", fg = "on_surface_variant" } },
-    tonal = { bg = "secondary_container", fg = "on_secondary_container", on = { bg = "secondary", fg = "on_secondary" } },
+    primary = { bg = "primary", fg = "on_primary", off = { bg = "surface_container_highest", fg = "on_surface_variant" } },
+    secondary = SECONDARY,
+    tinted = SECONDARY,
+    destructive = { bg = "error", fg = "on_error", off = { bg = "surface_container_highest", fg = "error" } },
     elevated = { bg = "surface_container_low", fg = "primary", elevation = 1, on = { bg = "primary", fg = "on_primary" } },
     outlined = { fg = "primary", border = "outline_variant", on = { bg = "inverse_surface", fg = "inverse_on_surface" } },
-    text = { fg = "primary" },
+    plain = { fg = "primary" },
 }
 
 -- Background, foreground and border signals of `kind`; `selected` (a boolean signal) picks the
@@ -123,8 +126,9 @@ end
 local function button(id, o)
     local sz = SIZES[o.size or "s"]
     local held = o.held or state("m3_held_" .. id, false)
-    local bg, fg, border = paint(BUTTON_TONES, o.kind, o.selected)
-    local tone = BUTTON_TONES[o.kind]
+    local kind = o.kind or "primary"
+    local bg, fg, border = paint(BUTTON_TONES, kind, o.selected)
+    local tone = BUTTON_TONES[kind]
     local kids = {}
     if o.icon then
         kids[1] = icon(o.icon, fg, o.icon_size or sz.icon, merge({ animate = { foreground = FADE, rotate = SPRING } }, o.icon_props))
@@ -132,7 +136,7 @@ local function button(id, o)
     if o.label then
         kids[#kids + 1] = text(o.label, fg, sz.type)
     end
-    local pad = o.kind == "text" and sz.pad * 0.75 or sz.pad
+    local pad = kind == "plain" and sz.pad * 0.75 or sz.pad
     local props = merge({
         width = o.width,
         height = sz.h,
@@ -141,6 +145,7 @@ local function button(id, o)
         border_width = tone.border and sz.outline or 0,
         border_color = border,
         on_click = o.on_click,
+        accessible_name = o.name or type(o.label) == "string" and o.label or type(o.icon) == "string" and o.icon:gsub("_", " ") or nil,
         disabled = o.disabled,
     }, theme.elevation[tone.elevation or 0])
     return pressable(id, merge(props, o.props), fg, row {

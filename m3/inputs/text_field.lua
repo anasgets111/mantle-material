@@ -39,7 +39,7 @@ function M.edit_click(target, selected, window)
                 { label = "Cut", icon = "content_cut", shortcut = "Ctrl+X", disabled = not has, on_click = act("cut") },
                 { label = "Copy", icon = "content_copy", shortcut = "Ctrl+C", disabled = not has, on_click = act("copy") },
                 { label = "Paste", icon = "content_paste", shortcut = "Ctrl+V", on_click = act("paste") },
-                { divider = true },
+                { separator = true },
                 { label = "Select all", icon = "select_all", shortcut = "Ctrl+A", on_click = act("select_all") },
             },
         })
@@ -52,6 +52,7 @@ end
 
 ---@class m3.TextFieldHandle
 ---@field value StateSignal<string>|Signal<string>
+---@field focus fun() Takes keyboard focus.
 ---@field clear? fun() Absent on a read-only field.
 ---@field set? fun(text: string) Replaces the text; absent on a read-only field.
 
@@ -59,6 +60,7 @@ end
 ---@class m3.TextFieldOpts
 ---@field kind? "outlined"|"filled" Default "outlined".
 ---@field label? string|Signal<string> Floats up while focused or filled.
+---@field name? string Accessible name; default the label.
 ---@field value? StateSignal<string> The text; own if omitted.
 ---@field container? string|Signal<string> The colour behind an outlined field, which the floating label cuts the outline with.
 ---@field width? number|"fill" Default "fill".
@@ -70,16 +72,16 @@ end
 ---@field supporting? string Helper text.
 ---@field validate? fun(text: string): string? An error message, shown in place of the supporting text.
 ---@field max_length? integer Caps the text; shows an n/max counter.
----@field disabled? boolean
+---@field disabled? boolean|Signal<boolean>
 ---@field multiline? boolean Wraps and takes newlines; the container grows from `min_lines` to `max_lines`, then the text scrolls.
 ---@field min_lines? integer Multi-line: the rows the field rests at. Default 1.
 ---@field max_lines? integer Multi-line: the rows it grows to before scrolling. Default 0, no limit.
 ---@field submit_key? "ctrl+return"|"return" Multi-line: the chord that calls `on_submit`. Default "ctrl+return"; "return" leaves Shift+Return for the newline.
----@field on_submit? fun(text: string) Multi-line: the submit chord; the field clears.
+---@field on_submit? fun(text: string) Enter (multi-line: the submit chord); the field clears.
 ---@field format? fun(text: string): string Rewrites the text after every edit, e.g. to insert a mask's separators.
 ---@field on_change? fun(text: string) After every edit, with the formatted text.
 ---@field autofocus? boolean Takes keyboard focus when it appears.
----@field window? any The window the Edit menu opens in; default the app window.
+---@field window? string The window the Edit menu opens in; default the app window.
 ---@field placeholder? string
 ---@field display? Signal<string> Read-only mode: the shown text, replacing the input.
 ---@field on_click? fun() Read-only mode: the click handler.
@@ -101,8 +103,8 @@ function M.text_field(id, opts)
     local target = focus_target(name)
     local multi = opts.multiline and not display
     local over = hover(name .. "_hover")
-    local off = opts.disabled
-    local dim = off and 0.38 or 1
+    local off = type(opts.disabled) == "userdata" and opts.disabled or theme.scheme:map(function() return opts.disabled or false end)
+    local dim = off:map(function(d) return d and 0.38 or 1 end)
     local has_trailing = opts.trailing or opts.clear or opts.validate
     local invalid = value:map(function(v)
         if (v or "") == "" then
@@ -121,10 +123,11 @@ function M.text_field(id, opts)
         value:set(t)
     end
     local function clear() set("") end
+    local function take_focus() target:request() end
 
     local function side(label)
         return text(label, c.on_surface_variant, "body_large", {
-            opacity = raised:map(function(up) return up and dim or 0 end),
+            opacity = computed({ raised, off }, function(up, d) return up and (d and 0.38 or 1) or 0 end),
             animate = { opacity = { duration = 150 }, foreground = FADE },
         })
     end
@@ -139,16 +142,16 @@ function M.text_field(id, opts)
             placeholder_color = c.on_surface_variant,
             caret = { color = tint },
             selection = { background = c.primary:map(function(p) return theme.alpha(p, 0.3) end) }, -- not in the spec: the selection ink
-            on_click = not opts.disabled and M.edit_click(target, has_selection(name), opts.window) or nil,
+            on_click = M.edit_click(target, has_selection(name), opts.window),
             multiline = multi,
             min_lines = multi and opts.min_lines or nil,
             max_lines = multi and opts.max_lines or nil,
             submit_key = multi and opts.submit_key or nil,
-            on_submit = multi and opts.on_submit or nil,
+            on_submit = not display and opts.on_submit or nil,
             initial_text = value,
             disabled = opts.disabled,
             max_length = opts.max_length,
-            accessible_name = opts.label,
+            accessible_name = opts.name or type(opts.label) == "string" and opts.label or nil,
             focus_ring = false,
             focus_target = target,
             autofocus = opts.autofocus,
@@ -195,7 +198,7 @@ function M.text_field(id, opts)
                 animate = { opacity = { duration = 100 }, rotate = LABEL_MOVE, foreground = FADE },
             }) or rect {},
             opts.clear and icon_button("tf_clear_" .. id, {
-                kind = "standard",
+                kind = "plain",
                 icon = "close",
                 on_click = clear,
                 props = {
@@ -236,8 +239,8 @@ function M.text_field(id, opts)
             entry,
         },
     }
-    local line = computed({ focus, invalid, over, theme.scheme }, function(f, err, hov, s)
-        if off then
+    local line = computed({ focus, invalid, over, off, theme.scheme }, function(f, err, hov, dis, s)
+        if dis then
             return theme.alpha(s.on_surface, 0.38)
         end
         return err and (hov and not f and s.on_error_container or s.error) or f and s.primary or hov and s.on_surface or filled and s.on_surface_variant or s.outline
@@ -249,7 +252,7 @@ function M.text_field(id, opts)
         background = line,
         animate = { height = { duration = 150 }, background = FADE },
     } or nil
-    local outline = off and theme.scheme:map(function(s) return theme.alpha(s.on_surface, 0.12) end) or line
+    local outline = computed({ off, line, theme.scheme }, function(d, l, s) return d and theme.alpha(s.on_surface, 0.12) or l end)
 
     local layout = { middle }
     if lead then
@@ -270,14 +273,14 @@ function M.text_field(id, opts)
                 focused = focus,
                 hover = over,
                 geometry = opts.geometry,
-                hittable = not opts.disabled,
-                accessible_name = display and opts.label or nil,
+                hittable = off:map(function(d) return not d end),
+                accessible_name = display and (opts.name or type(opts.label) == "string" and opts.label or nil) or nil,
                 radius = filled and { top_left = 4, top_right = 4, bottom_right = 0, bottom_left = 0 } or 4,
-                background = filled and (off and c.on_surface:map(function(o) return theme.alpha(o, 0.04) end) or c.surface_container_highest) or CLEAR,
+                background = filled and computed({ off, theme.scheme }, function(d, s) return d and theme.alpha(s.on_surface, 0.04) or s.surface_container_highest end) or CLEAR,
                 border_width = filled and 0 or focus:map(function(f) return f and 2 or 1 end),
                 border_color = filled and CLEAR or outline,
                 animate = { border_color = FADE, border_width = { duration = 150 }, background = FADE },
-                on_click = opts.on_click or function() target:request() end,
+                on_click = opts.on_click or take_focus,
                 children = {
                     row {
                         width = "fill",
@@ -299,7 +302,7 @@ function M.text_field(id, opts)
             },
         },
     }
-    return node, { value = value, clear = not display and clear or nil, set = not display and set or nil }
+    return node, { value = value, focus = take_focus, clear = not display and clear or nil, set = not display and set or nil }
 end
 
 return M

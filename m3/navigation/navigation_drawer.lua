@@ -15,7 +15,7 @@ local M = {}
 
 local SLIDE = { duration = 400, easing = easing.emphasized_decelerate }
 
--- The drawer sheet: pill items, `{ header = "Mail" }` section headers and `{ divider = true }` rules.
+-- The drawer sheet: pill items, `{ header = "Mail" }` section headers and `{ separator = true }` rules.
 ---@param id string
 ---@param opts m3.NavigationDrawerOpts|m3.OpenNavigationDrawerOpts
 ---@param select fun(key: m3.NavKey)
@@ -26,7 +26,7 @@ local function drawer_sheet(id, opts, select, props)
     for i, item in ipairs(opts.items) do
         if item.header then
             kids[i] = row { width = "fill", height = 56, align_v = "center", padding = { left = 16 }, children = { text(item.header, c.on_surface_variant, "title_small") } }
-        elseif item.divider then
+        elseif item.separator then
             kids[i] = rect { width = "fill", height = 1, margin = { left = 16, right = 16, top = 8, bottom = 4 }, background = c.outline_variant }
         else
             local key = key_of(item, i)
@@ -46,7 +46,7 @@ end
 
 ---@class m3.DrawerItem: m3.NavItem
 ---@field header? string A section header instead of a destination.
----@field divider? boolean A rule instead of a destination.
+---@field separator? boolean A rule instead of a destination.
 
 ---@class m3.NavigationDrawerOpts
 ---@field items m3.DrawerItem[]

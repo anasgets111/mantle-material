@@ -62,7 +62,7 @@ local color_page = column {
     spacing = 16,
     children = {
         section.card("Seed", { row { spacing = 16, children = swatches } }),
-        section.card("Variant", { m3.segmented_button("variant", { options = theme.VARIANTS, value = theme.variant, width = 120 }) }),
+        section.card("Variant", { m3.segmented_control("variant", { items = theme.VARIANTS, value = theme.variant, width = 120 }) }),
         section.card("Roles", tiles),
     },
 }
@@ -232,7 +232,7 @@ local motion_page = column {
     children = {
         section.card("Play", {
             m3.text("Every dot below runs on the same trigger; press again to run it back.", c.on_surface_variant, "body_medium"),
-            m3.button("motion_play", { kind = "filled", label = "Play", icon = "play_arrow", on_click = function() go:set(not go:get()) end }),
+            m3.button("motion_play", { kind = "primary", label = "Play", icon = "play_arrow", on_click = function() go:set(not go:get()) end }),
         }),
         section.card("Springs", spring_lanes),
         section.card("Easing curves (600 ms)", easing_lanes),

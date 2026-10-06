@@ -1,5 +1,6 @@
 -- Layers. One of each at a time; the opener keeps its `opts` for the builder, since named state
--- holds only plain data. Bottom sheet, side sheet and full-window dialog share the scrim and sheet action.
+-- holds only plain data. Bottom sheet, side sheet and full-window dialog share the scrim and sheet action;
+-- the popover is an anchored card over a transparent scrim.
 local core = require("m3.core")
 local theme = require("m3.theme")
 local overlay = require("m3.overlay")
@@ -13,9 +14,10 @@ local c, easing = theme.c, theme.easing
 
 local M = {}
 
--- A table of nodes, or a function that builds one at layer-open time.
-local function build(content)
-    return type(content) == "function" and content() or content or {}
+-- A node, a table of nodes, or a function of `close` that builds either at layer-open time; always a table of nodes.
+local function build(content, close)
+    local made = type(content) == "function" and content(close) or content or {}
+    return next(made) == nil and {} or #made > 0 and made or { made }
 end
 
 local function scrim(id, on_click, children)
@@ -41,6 +43,10 @@ local function layer_root(id, modal, on_click, make)
 end
 
 local sheets = {}
+local popover_box = geometry("m3_popover_box")
+local ZERO = { x = 0, y = 0, width = 0, height = 0 }
+-- not in the spec: the gap between a popover and its anchor, and the least room left to the host's edge.
+local POP_GAP, POP_EDGE = 4, 8
 
 -- Dragging the handle area moves the sheet by the pointer's offset from the press, since the
 -- pointer is read in the box's own (translated) space. Release closes it past DISMISS px or on a
@@ -110,14 +116,14 @@ local function bottom_sheet()
     for _, item in ipairs(opts.items or {}) do
         kids[#kids + 1] = sheet_action(item)
     end
-    for _, node in ipairs(build(opts.content)) do
+    for _, node in ipairs(build(opts.content, function() overlay.close("bottom_sheet") end)) do
         kids[#kids + 1] = node
     end
     local modal = opts.modal ~= false
     return layer_root("bottom_sheet", modal, function() overlay.close("bottom_sheet") end, function(id)
         return column {
             id = id,
-            width = 640,
+            width = opts.width or 640,
             align_h = "center",
             align_v = "end",
             translate = { y = 0 },
@@ -153,11 +159,11 @@ local function side_sheet()
             align_v = "center",
             children = {
                 text(opts.title or "", c.on_surface_variant, "title_large", { width = "fill" }),
-                icon_button("side_close", { kind = "standard", icon = "close", on_click = close }),
+                icon_button("side_close", { kind = "plain", icon = "close", on_click = close }),
             },
         },
     }
-    for _, node in ipairs(build(opts.content)) do
+    for _, node in ipairs(build(opts.content, close)) do
         kids[#kids + 1] = node
     end
     kids[#kids + 1] = rect { width = "fill", height = "fill" }
@@ -168,7 +174,7 @@ local function side_sheet()
         children = {
             button("side_cancel", { kind = "outlined", label = opts.cancel or "Cancel", on_click = close }),
             button("side_confirm", {
-                kind = "filled",
+                kind = "primary",
                 label = opts.confirm or "Save",
                 on_click = function()
                     close()
@@ -182,7 +188,7 @@ local function side_sheet()
     return layer_root("side_sheet", opts.modal ~= false, close, function(id)
         return column(inert {
             id = id,
-            width = 400,
+            width = opts.width or 400,
             height = "fill",
             align_h = "end",
             radius = { top_left = 16, bottom_left = 16 },
@@ -192,8 +198,8 @@ local function side_sheet()
             translate = { x = 0 },
             shadows = { { color = "#0000004D", blur = 3, offset = { x = -1 } } },
             animate = {
-                translate = { duration = 500, easing = easing.emphasized_decelerate, from = { x = 420 } },
-                exit = { duration = 250, easing = easing.emphasized_accelerate, translate = { x = 420 } },
+                translate = { duration = 500, easing = easing.emphasized_decelerate, from = { x = (opts.width or 400) + 20 } },
+                exit = { duration = 250, easing = easing.emphasized_accelerate, translate = { x = (opts.width or 400) + 20 } },
             },
             children = kids,
         })
@@ -203,7 +209,7 @@ end
 local function fullscreen_dialog()
     local opts = sheets.full
     local function close() overlay.close("fullscreen_dialog") end
-    local body = build(opts.content)
+    local body = build(opts.content, close)
     return column(inert {
         id = "fullscreen_dialog",
         width = "fill",
@@ -224,10 +230,10 @@ local function fullscreen_dialog()
                 spacing = 16,
                 padding = { left = 8, right = 16 },
                 children = {
-                    icon_button("fs_close", { kind = "standard", icon = "close", on_click = close }),
+                    icon_button("fs_close", { kind = "plain", icon = "close", on_click = close }),
                     text(opts.title or "", c.on_surface, "title_large", { width = "fill" }),
                     button("fs_confirm", {
-                        kind = "filled",
+                        kind = "primary",
                         label = opts.confirm or "Save",
                         on_click = function()
                             close()
@@ -248,7 +254,74 @@ overlay.layer("bottom_sheet", bottom_sheet)
 overlay.layer("side_sheet", side_sheet)
 overlay.layer("fullscreen_dialog", fullscreen_dialog)
 
----@alias m3.SheetContent Node[]|fun(): Node[]
+local function popover()
+    local opts = sheets.popover
+    if not opts or not opts.content then
+        return rect { hittable = false } -- a reload cleared the open popover
+    end
+    local anchor, bounds, edge = opts.anchor, overlay.bounds(opts.window), opts.edge or "bottom"
+    local function clamp(x, size, lo, hi) return math.max(lo + POP_EDGE, math.min(x, hi - POP_EDGE - size)) end
+    return rect {
+        id = "popover",
+        width = "fill",
+        height = "fill",
+        cursor = "default",
+        focus_ring = false,
+        on_click = function() overlay.close("popover") end,
+        animate = { exit = { duration = 100, opacity = 0 } },
+        children = {
+            column(core.merge({
+                width = opts.width or 280,
+                padding = 16,
+                radius = 12,
+                background = c.surface_container,
+                geometry = popover_box,
+                -- Placed by margin, not `translate`: pointer coordinates follow the laid-out box. It flips to the
+                -- opposite side when only that has room, and slides to stay inside the host.
+                margin = computed({ anchor, bounds, popover_box }, function(r, b, t)
+                    r = r or ZERO
+                    local w, h = t and t.width or 0, t and t.height or 0
+                    local vertical = edge == "bottom" or edge == "top"
+                    local before = edge == "top" or edge == "left"
+                    -- The start of a span `len` long on the anchor's `before` or after side, else the other when only that fits.
+                    local function place(len, from, size, lo, hi)
+                        local function at(back) return back and from - POP_GAP - len or from + size + POP_GAP end
+                        local first = at(before)
+                        if first < lo + POP_EDGE or first + len > hi - POP_EDGE then
+                            local other = at(not before)
+                            if other >= lo + POP_EDGE and other + len <= hi - POP_EDGE then
+                                return other
+                            end
+                        end
+                        return first
+                    end
+                    if b then
+                        local left, top = r.x, r.y
+                        if vertical then
+                            top = place(h, r.y, r.height, b.y, b.y + b.height)
+                        else
+                            left = place(w, r.x, r.width, b.x, b.x + b.width)
+                        end
+                        return { left = clamp(left, w, b.x, b.x + b.width), top = clamp(top, h, b.y, b.y + b.height) }
+                    end
+                    return { left = r.x, top = r.y + r.height + POP_GAP }
+                end),
+                on_click = function() end,
+                scale = 1,
+                opacity = 1,
+                origin = { x = 0.5, y = 0 },
+                animate = {
+                    scale = { duration = 200, easing = easing.emphasized_decelerate, from = 0.9 },
+                    opacity = { duration = 100, from = 0 },
+                },
+                children = { type(opts.content) == "function" and opts.content() or opts.content },
+            }, theme.elevation[2])),
+        },
+    }
+end
+overlay.layer("popover", popover)
+
+---@alias m3.SheetContent Node|Node[]|fun(close: fun()): Node|Node[]
 
 ---@class m3.SheetItem
 ---@field icon? string
@@ -259,6 +332,7 @@ overlay.layer("fullscreen_dialog", fullscreen_dialog)
 ---@class m3.BottomSheetOpts
 ---@field title? string
 ---@field modal? boolean Default true: a scrim, and a tap outside closes it. `false`: a standard sheet, no scrim, the content beside it stays live (Escape or the drag handle closes it).
+---@field width? number Default 640.
 ---@field items? m3.SheetItem[] Rows that close the sheet, then run.
 ---@field content? m3.SheetContent
 ---@field window? string The window or panel it opens over; default `core.window`.
@@ -273,10 +347,27 @@ function M.open_bottom_sheet(opts)
     overlay.open("bottom_sheet", nil, opts.window)
 end
 
+---@class m3.PopoverOpts
+---@field anchor? Signal<Rect> A `geometry(name)` signal; the popover opens beside it.
+---@field at? { x: number, y: number } A point in the host's coordinates instead of `anchor`.
+---@field content Node|fun(): Node A node, or a function that builds one at each opening.
+---@field edge? "bottom"|"top"|"left"|"right" The side of the anchor it opens on, default "bottom"; it flips to the opposite side when only that has room, and slides to stay inside the host.
+---@field width? number Default 280.
+---@field window? string The window or panel it opens over; default `core.window`.
+---@field [string] "no such property"
+
+---@param opts m3.PopoverOpts
+function M.open_popover(opts)
+    local point = opts.at and { x = opts.at.x, y = opts.at.y, width = 0, height = 0 }
+    sheets.popover = core.merge(core.merge({}, opts), { anchor = opts.anchor or (point and computed({ theme.scheme }, function() return point end)) })
+    overlay.open("popover", nil, opts.window)
+end
+
 ---@class m3.SideSheetOpts
 ---@field title? string
 ---@field modal? boolean Default true: a scrim, and a tap outside closes it. `false`: a standard sheet, no scrim, the content beside it stays live.
 ---@field content? m3.SheetContent
+---@field width? number Default 400.
 ---@field confirm? string Default "Save".
 ---@field cancel? string Default "Cancel".
 ---@field on_confirm? fun() Runs after the sheet closes.
@@ -288,6 +379,24 @@ function M.open_side_sheet(opts)
     opts = opts or {}
     sheets.side = opts
     overlay.open("side_sheet", nil, opts.window)
+end
+
+---@class m3.SheetOpts
+---@field content? m3.SheetContent
+---@field title? string
+---@field width? number Side sheet width, default 400; a bottom sheet is 640.
+---@field side? "bottom"|"side" Default "bottom".
+---@field window? string The window or panel it opens over; default `core.window`.
+---@field [string] "no such property"
+
+-- A bottom sheet, or with `side = "side"` a side sheet; `open_bottom_sheet` and `open_side_sheet` take the rest of each one's fields.
+---@param opts m3.SheetOpts
+function M.open_sheet(opts)
+    if opts.side == "side" then
+        M.open_side_sheet({ title = opts.title, content = opts.content, width = opts.width, window = opts.window })
+    else
+        M.open_bottom_sheet({ title = opts.title, content = opts.content, width = opts.width, window = opts.window })
+    end
 end
 
 ---@class m3.FullscreenDialogOpts

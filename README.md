@@ -31,7 +31,7 @@ return {
     m3.app_window {
         id = "app",
         title = "My app",
-        child = m3.button("save", { label = "Save", on_click = function() m3.overlay.notify("Saved") end }),
+        child = m3.button("save", { kind = "primary", label = "Save", on_click = function() m3.notify { title = "Saved" } end }),
     },
 }
 ```

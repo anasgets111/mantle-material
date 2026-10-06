@@ -64,9 +64,25 @@ function M.next_seed()
     M.seed:set(M.SEEDS[at % #M.SEEDS + 1].color)
 end
 
+-- The shared roles every library of the unified API answers to, from the scheme and `dark`: they sit
+-- beside the native roles (`background` aliases `surface`).
+local SHARED = {
+    accent = "primary", on_accent = "on_primary", text = "on_surface", text_secondary = "on_surface_variant",
+    background = "surface", container = "surface_container", container_raised = "surface_container_high", separator = "outline_variant",
+}
+local STATUS = { success = { "#2E7D32", "#81C784" }, warning = { "#B26A00", "#FFB74D" } }
+
 M.c = setmetatable({}, {
     __index = function(roles, role)
-        local signal = M.scheme:map(function(scheme) return scheme[role] end)
+        local signal
+        if role == "text_disabled" then
+            signal = M.scheme:map(function(scheme) return M.alpha(scheme.on_surface, 0.38) end)
+        elseif STATUS[role] then
+            signal = M.dark:map(function(dark) return STATUS[role][dark and 2 or 1] end)
+        else
+            local native = SHARED[role] or role
+            signal = M.scheme:map(function(scheme) return scheme[native] end)
+        end
         rawset(roles, role, signal)
         return signal
     end,
@@ -106,6 +122,9 @@ end
 for _, style in ipairs(M.TYPE_SCALE) do
     M.type[style[1]] = { style[2], style[4], style[3], style[5] }
 end
+-- The shared type styles of the unified API, beside the native ones.
+M.type.title, M.type.headline, M.type.body, M.type.label, M.type.caption =
+    M.type.title_large, M.type.headline_small, M.type.body_medium, M.type.label_large, M.type.body_small
 
 -- M3 Expressive motion scheme: springs from the Compose tokens, damping = ratio * 2 * sqrt(stiffness).
 -- Reduced motion swaps every spring for a quick critically damped one (not in the spec): the entry's
@@ -126,6 +145,8 @@ M.motion = {
     effects_slow = spring("effects_slow", 800, 1),
     fade = { duration = 300, easing = "in_out_quad" },
 }
+-- The shared motion names of the unified API, beside the native ones.
+M.motion.fast, M.motion.default, M.motion.slow = M.motion.spatial_fast, M.motion.spatial, M.motion.spatial_slow
 -- Wheel notches glide on a critically damped spring: Expressive spatial springs overshoot.
 M.motion.scroll = M.motion.effects
 

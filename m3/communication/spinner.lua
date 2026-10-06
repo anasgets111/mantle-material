@@ -1,4 +1,4 @@
--- M3 Expressive loading indicator and the morphing shape.
+-- M3 Expressive loading indicator (`spinner`) and the morphing shape.
 local theme = require("m3.theme")
 local core = require("m3.core")
 local shapes = require("m3.shapes")
@@ -17,14 +17,15 @@ local CYCLES = 4
 -- M3 Expressive loading indicator: a 38px shape that morphs to the next every 650 ms on a
 -- spring (ratio 0.6, stiffness 200), turning 90 degrees with each morph while the whole turns
 -- once per 4.666 s.
----@class m3.LoadingIndicatorOpts
+---@class m3.SpinnerOpts
 ---@field contained? boolean Sits it on a 48px primary container circle.
+---@field name? string Accessible name; default "loading".
 ---@field [string] "no such property"
 
 ---@param _ string
----@param opts? m3.LoadingIndicatorOpts
+---@param opts? m3.SpinnerOpts
 ---@return Node
-function M.loading_indicator(_, opts)
+function M.spinner(_, opts)
     local contained = opts and opts.contained
     local shapes_ = {}
     for i, name in ipairs(SEQUENCE) do
@@ -37,6 +38,7 @@ function M.loading_indicator(_, opts)
         turn[i + 1] = { value = 90 * i, duration = MORPH_MS, spring = MORPH_SPRING }
     end
     return rect {
+        accessible_name = opts and opts.name or "loading",
         width = 48,
         height = 48,
         radius = 24,

@@ -46,9 +46,9 @@ function M.actions(id, name, on_ok, disabled)
         spacing = 8,
         padding = { left = 12, right = 12, top = 8 },
         children = {
-            button(name .. "_cancel", { kind = "text", label = "Cancel", on_click = function() overlay.close(id) end }),
+            button(name .. "_cancel", { kind = "plain", label = "Cancel", on_click = function() overlay.close(id) end }),
             button(name .. "_ok", {
-                kind = "text",
+                kind = "plain",
                 label = "OK",
                 disabled = disabled,
                 on_click = function()

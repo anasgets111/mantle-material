@@ -7,15 +7,16 @@ local click_of, build = internal.click_of, internal.button
 
 local M = {}
 
----@alias m3.ButtonKind "filled"|"tonal"|"elevated"|"outlined"|"text"
+---@alias m3.ButtonKind "primary"|"secondary"|"plain"|"destructive"|"tinted"|"elevated"|"outlined"
 
--- Common button; five emphasis levels, five Expressive sizes, optional toggle.
+-- Common button; seven kinds (`tinted` looks as `secondary`), five Expressive sizes, optional toggle.
 ---@class m3.ButtonOpts
----@field kind? m3.ButtonKind Default "filled".
+---@field kind? m3.ButtonKind Default "secondary".
 ---@field size? m3.Size Default "s".
 ---@field shape? "round"|"square"|"toggle" Default "round"; "toggle" squares while selected, implied by `value`.
 ---@field label? string|Signal<string>
----@field icon? string|Signal<string> Material Symbols name.
+---@field icon? string|Signal<string> A shared icon name or a Material Symbols name.
+---@field name? string Accessible name; default the label, else the icon.
 ---@field value? StateSignal<boolean> Makes it a toggle; a click flips it.
 ---@field width? number Fixed width, content centred.
 ---@field padding? number|table Overrides the size's horizontal padding.
@@ -33,7 +34,7 @@ local M = {}
 ---@return Node
 function M.button(id, opts)
     return build(id, merge(merge({}, opts), {
-        kind = opts.kind or "filled",
+        kind = opts.kind or "secondary",
         selected = opts.value,
         shape = opts.shape or opts.value and "toggle" or nil,
         on_click = click_of(opts),

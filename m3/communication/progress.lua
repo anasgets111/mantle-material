@@ -290,38 +290,40 @@ local function circular_wavy_indeterminate()
     return circular_indeterminate(frames[1], length(frames[1]), extra)
 end
 
--- Linear progress bar.
+-- Linear progress bar (`progress_bar`).
 ---@class m3.ProgressOpts
 ---@field value? number|Signal<number> 0..1. Default 0.
 ---@field indeterminate? boolean Ignores `value`.
 ---@field wavy? boolean Wavy active indicator.
+---@field name? string Accessible name; default "progress".
 ---@field [string] "no such property"
 
----@class m3.LinearProgressOpts: m3.ProgressOpts
+---@class m3.ProgressBarOpts: m3.ProgressOpts
 ---@field width? number Default 240.
 ---@field [string] "no such property"
 
 ---@param id string
----@param opts m3.LinearProgressOpts
+---@param opts m3.ProgressBarOpts
 ---@return Node
-function M.linear_progress(id, opts)
+function M.progress_bar(id, opts)
     local w = opts.width or 240
-    if opts.indeterminate then
-        return linear_indeterminate(w)
-    end
-    return (opts.wavy and linear_wavy or linear)(signal(id, opts.value), w)
+    local bar = opts.indeterminate and linear_indeterminate(w) or (opts.wavy and linear_wavy or linear)(signal(id, opts.value), w)
+    return rect { accessible_name = opts.name or "progress", children = { bar } }
 end
 
--- Circular progress ring (48px).
+-- Circular progress ring (`progress_ring`, 48px).
 ---@param id string
 ---@param opts m3.ProgressOpts
 ---@return Node
-function M.circular_progress(id, opts)
+function M.progress_ring(id, opts)
+    local ring
     if opts.indeterminate then
-        return opts.wavy and circular_wavy_indeterminate() or circular_indeterminate(circle(R), 2 * math.pi * R)
+        ring = opts.wavy and circular_wavy_indeterminate() or circular_indeterminate(circle(R), 2 * math.pi * R)
+    else
+        local p = signal(id, opts.value)
+        ring = opts.wavy and circular_wavy(p) or circular_flat(p)
     end
-    local p = signal(id, opts.value)
-    return opts.wavy and circular_wavy(p) or circular_flat(p)
+    return rect { accessible_name = opts.name or "progress", children = { ring } }
 end
 
 return M

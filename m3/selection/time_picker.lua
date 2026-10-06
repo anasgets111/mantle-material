@@ -310,7 +310,7 @@ overlay.layer("time", function()
             align_v = "center",
             children = {
                 icon_button("tp_mode", {
-                    kind = "standard",
+                    kind = "plain",
                     icon = keyboard:map(function(on) return on and "schedule" or "keyboard" end),
                     on_click = function()
                         time_err:set({ hour = false, minute = false })

@@ -5,7 +5,7 @@ fonts { "Roboto", "Inter", "Noto Sans", "Noto Color Emoji" }
 local m3 = require("m3")
 local contacts_data = require("demo.contacts")
 
-local theme, overlay = m3.theme, m3.overlay
+local theme = m3.theme
 
 -- M3's component categories, the styles they draw from and the layouts that adapt to the window.
 local DESTINATIONS = {
@@ -36,12 +36,12 @@ local function quit() process.detach("mantle", { "stop", "--pid", tostring(mantl
 local MENU = {
     { label = "Restore contacts", icon = "restart_alt", on_click = function()
         contacts_data.restore()
-        overlay.notify("Contacts restored")
+        m3.notify { title = "Contacts restored" }
     end },
     { label = "Toggle dark theme", icon = "contrast", shortcut = "Ctrl+D", on_click = theme.toggle_dark },
-    { divider = true },
+    { separator = true },
     { label = "About", icon = "info", on_click = function()
-        overlay.ask({ icon = "info", title = "Material 3 on Mantle", body = "Components, colour, type and motion from the Material 3 spec, drawn by the Mantle engine." })
+        m3.open_dialog { icon = "info", title = "Material 3 on Mantle", message = "Components, colour, type and motion from the Material 3 spec, drawn by the Mantle engine." }
     end },
 }
 m3.bind_shortcuts(MENU)
@@ -50,7 +50,7 @@ local layout = m3.adaptive_navigation("nav", {
     items = DESTINATIONS,
     value = page,
     window = "m3",
-    fab = { icon = "edit", label = "Compose", on_click = function() overlay.notify("Draft saved") end },
+    fab = { icon = "edit", label = "Compose", on_click = function() m3.notify { title = "Draft saved" } end },
     content = column {
         id = "layout",
         width = "fill",

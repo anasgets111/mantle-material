@@ -121,23 +121,25 @@ function show_next(host)
     end
     snack_serial[host] = (snack_serial[host] or 0) + 1
     snack_actions[host] = item.on_action
-    with_snack(host, { n = snack_serial[host], text = item.message, action = item.action, close = item.close })
+    with_snack(host, { n = snack_serial[host], text = item.message, icon = item.icon, action = item.action, close = item.close })
     snack_timers[host] = timer(item.action and 8000 or 4000, function() dismiss(host) end)
 end
 
 -- Shows a snackbar. Without an action it only informs; a longer message wraps to two lines. One shows
 -- per host; a new message waits until the current one times out or is dismissed.
 ---@class m3.NotifyOpts
+---@field title string The snackbar's message.
+---@field body? string Appended below the title.
+---@field icon? string Shared or Material Symbols name, before the message.
 ---@field action? string Label of a text button; the snackbar then stays 8 s instead of 4.
 ---@field on_action? fun() Runs when the action is pressed.
 ---@field close? boolean A trailing close icon.
 ---@field window? string The window or panel it shows over; default `core.window`.
 ---@field [string] "no such property"
 
----@param message string
----@param opts? m3.NotifyOpts
-function M.notify(message, opts)
-    local item = core.merge({ message = message }, opts)
+---@param opts m3.NotifyOpts
+function M.notify(opts)
+    local item = core.merge({ message = opts.body and opts.title .. "\n" .. opts.body or opts.title }, opts)
     local host = resolve(item.window) or ""
     snack_queue[host] = snack_queue[host] or {}
     table.insert(snack_queue[host], item)
@@ -157,8 +159,12 @@ local function text_button(name, content, color, run)
 end
 
 local function snackbar(s, host)
-    local kids = { core.text(s.text, c.inverse_on_surface, "body_medium", { wrap = "word", max_lines = 2, max_width = 560, margin = { top = 14, bottom = 14, right = 8 } }) }
-    kids[2] = rect { width = "fill", height = 1 }
+    local kids = {}
+    if s.icon then
+        kids[1] = core.icon(s.icon, c.inverse_on_surface, 24, { margin = { top = 12 } })
+    end
+    kids[#kids + 1] = core.text(s.text, c.inverse_on_surface, "body_medium", { wrap = "word", max_lines = 2, max_width = 560, margin = { top = 14, bottom = 14, right = 8 } })
+    kids[#kids + 1] = rect { width = "fill", height = 1 }
     if s.action then
         kids[#kids + 1] = text_button("snack_action", core.text(s.action, c.inverse_primary, "label_large"), c.inverse_primary, function()
             local run = snack_actions[host]
@@ -200,48 +206,47 @@ end
 
 ---@type table
 local dialog = {}
+local dialog_n = 0 -- names each opening's nodes afresh
 
----@class m3.DialogAction
+---@class m3.DialogButton
 ---@field label string
----@field kind? "text"|"tonal"|"filled" Default "text". Every action closes the dialog, then runs.
+---@field kind? "primary"|"destructive"|"plain" Default "plain". Every button closes the dialog, then runs.
 ---@field on_click? fun()
 ---@field [string] "no such property"
 
----@class m3.DialogSpec
----@field icon? string Material Symbols name; centres the title.
+---@class m3.DialogOpts
+---@field icon? string A shared or Material Symbols name; centres the title.
 ---@field title string
----@field body? string|Node Supporting text, or any node; it scrolls when taller than the window allows.
----@field actions? m3.DialogAction[] In the order shown, at the end of the row. Default "Cancel", plus `confirm`.
----@field confirm? string Shorthand for a trailing action that runs `ask`'s second argument.
+---@field message? string|Node Supporting text, or any node; it scrolls when taller than the window allows.
+---@field buttons? m3.DialogButton[] In the order shown, at the end of the row. Default one "OK".
 ---@field window? string The window or panel it opens over; default `core.window`.
----@field message? string `confirm_remove`: the snackbar text after the action.
----@field n? integer Set by `ask`.
 ---@field [string] "no such property"
 
----@param spec m3.DialogSpec
----@param confirm? fun() Runs when the `confirm` button is pressed.
-function M.ask(spec, confirm)
-    spec.n = (dialog.n or 0) + 1
-    if not spec.actions then
-        spec.actions = { { label = "Cancel" } }
-        if spec.confirm then
-            spec.actions[2] = { label = spec.confirm, on_click = confirm }
-        end
-    end
-    dialog = spec
-    M.open("dialog", nil, spec.window)
+---@param opts m3.DialogOpts
+function M.open_dialog(opts)
+    dialog_n = dialog_n + 1
+    dialog = opts
+    M.open("dialog", nil, opts.window)
 end
 
 -- A destructive action behind a confirm dialog, then a snackbar whose Undo calls `restore`.
----@param spec m3.DialogSpec `message` is the snackbar text; `icon` and `confirm` default to a delete's.
+---@class m3.ConfirmRemoveOpts: m3.DialogOpts
+---@field confirm? string The confirming button's label; default "Delete".
+---@field removed string The snackbar text after the action.
+
+---@param opts m3.ConfirmRemoveOpts `icon` defaults to a delete's.
 ---@param remove fun()
 ---@param restore fun()
-function M.confirm_remove(spec, remove, restore)
-    spec.icon, spec.confirm = spec.icon or "delete", spec.confirm or "Delete"
-    M.ask(spec, function()
-        remove()
-        M.notify(spec.message, { action = "Undo", on_action = restore })
-    end)
+function M.confirm_remove(opts, remove, restore)
+    opts.icon = opts.icon or "delete"
+    opts.buttons = {
+        { label = "Cancel" },
+        { label = opts.confirm or "Delete", kind = "destructive", on_click = function()
+            remove()
+            M.notify({ title = opts.removed, action = "Undo", on_action = restore })
+        end },
+    }
+    M.open_dialog(opts)
 end
 
 function M.close_dialog()
@@ -254,9 +259,9 @@ M.layer("dialog", function()
         return rect { hittable = false } -- a reload cleared the open dialog
     end
     local actions = {}
-    for i, a in ipairs(spec.actions or {}) do
+    for i, a in ipairs(spec.buttons or { { label = "OK" } }) do
         actions[i] = button("dialog_action" .. i, {
-            kind = a.kind or "text",
+            kind = a.kind or "plain",
             label = a.label,
             on_click = function()
                 M.close_dialog()
@@ -266,13 +271,13 @@ M.layer("dialog", function()
             end,
         })
     end
-    local body = spec.body
+    local body = spec.message
     if type(body) == "string" then
         body = core.text(body, c.on_surface_variant, "body_medium", { wrap = "word", max_width = 512 })
     end
     local bounds = M.bounds(spec.window)
     return rect {
-        id = "dialog" .. spec.n,
+        id = "dialog" .. dialog_n,
         width = "fill",
         height = "fill",
         background = theme.scheme:map(function(s) return theme.alpha(s.scrim, 0.32) end),
@@ -301,7 +306,7 @@ M.layer("dialog", function()
                     body and column {
                         -- not in the spec: the body scrolls past the host's height less 140px for the title and actions.
                         max_height = bounds:map(function(b) return math.max(120, (b and b.height > 0 and b.height or 600) - 140) end),
-                        scroll = scroll("m3_dialog_scroll" .. spec.n),
+                        scroll = scroll("m3_dialog_scroll" .. dialog_n),
                         animate = { scroll = theme.motion.scroll },
                         children = { body },
                     } or nil,

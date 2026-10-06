@@ -1,4 +1,4 @@
--- M3 Expressive segmented button: one outlined pill split into equal segments.
+-- M3 Expressive segmented control: one outlined pill split into equal segments.
 local theme = require("m3.theme")
 local core = require("m3.core")
 local check = require("m3.internal.common").check
@@ -10,27 +10,30 @@ local text, icon = core.text, core.icon
 local M = {}
 
 -- One outlined pill split into equal segments; the selected ones are tinted, and a text-only one
--- is checked. An option is a label, or `{ label?, icon?, name? }`; icon-only needs a `name`.
----@alias m3.Segment string|{ label?: string, icon?: string, name?: string }
+-- is checked. An item is a label, or `{ label?, icon?, value? }`; its key is `value`, else the label, else the icon.
+---@alias m3.Segment string|{ label?: string, icon?: string, value?: string }
 
----@class m3.SegmentedButtonOpts
----@field options m3.Segment[]
----@field multi? boolean Several segments can be on; `value` is then a set of keys.
----@field value? StateSignal<string>|StateSignal<table<string, boolean>> The selected key (a label or `name`), or with `multi` the set of selected keys; default the first option, or empty.
+---@class m3.SegmentedControlOpts
+---@field items m3.Segment[]
+---@field multiple? boolean Several segments can be on; `value` is then a set of keys.
+---@field value? StateSignal<string>|StateSignal<table<string, boolean>> The selected key, or with `multiple` the set of selected keys; default the first item, or empty.
+---@field on_change? fun(value: string|table<string, boolean>) After a segment is picked, with the new `value`.
+---@field disabled? boolean|Signal<boolean> Dimmed to 38% and inert.
+---@field name? string Accessible name of the control.
 ---@field width? number Per segment.
 ---@field [string] "no such property"
 
 ---@param id string
----@param opts m3.SegmentedButtonOpts
+---@param opts m3.SegmentedControlOpts
 ---@return Node
-function M.segmented_button(id, opts)
-    local multi = opts.multi
+function M.segmented_control(id, opts)
+    local multi = opts.multiple
     local function norm(o) return type(o) == "table" and o or { label = o } end
-    local function key_of(o) return norm(o).name or norm(o).label end
-    local value = opts.value or state("m3_" .. id, multi and {} or key_of(opts.options[1]))
-    local bind = keys.roving("seg_" .. id, #opts.options)
+    local function key_of(o) return norm(o).value or norm(o).label or norm(o).icon end
+    local value = opts.value or state("m3_" .. id, multi and {} or key_of(opts.items[1]))
+    local bind = keys.roving("seg_" .. id, #opts.items)
     local segments = {}
-    for i, option in ipairs(opts.options) do
+    for i, option in ipairs(opts.items) do
         local key = key_of(option)
         local label, glyph = norm(option).label, norm(option).icon
         local selected = value:map(function(v)
@@ -55,6 +58,7 @@ function M.segmented_button(id, opts)
             border_width = i > 1 and { left = 1 } or 0,
             border_color = c.outline,
             accessible_name = label or key,
+            disabled = opts.disabled,
             on_click = function()
                 if multi then
                     local set = core.merge({}, value:get())
@@ -62,6 +66,9 @@ function M.segmented_button(id, opts)
                     value:set(set)
                 else
                     value:set(key)
+                end
+                if opts.on_change then
+                    opts.on_change(value:get())
                 end
             end,
         }), fg, row {
@@ -75,6 +82,7 @@ function M.segmented_button(id, opts)
     end
     return rect {
         height = 40,
+        accessible_name = opts.name,
         radius = 20,
         clip = "rounded",
         children = {

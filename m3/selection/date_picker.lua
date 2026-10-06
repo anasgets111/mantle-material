@@ -170,8 +170,8 @@ local function date_layer(id)
             padding = { left = 12 },
             children = {
                 text(view:map(function(v) return MONTHS[v.m] .. " " .. v.y end), c.on_surface_variant, "label_large", { width = "fill" }),
-                icon_button("dp_prev", { kind = "standard", icon = "chevron_left", on_click = function() shift(-1) end, props = { align_v = "center" } }),
-                icon_button("dp_next", { kind = "standard", icon = "chevron_right", on_click = function() shift(1) end, props = { align_v = "center" } }),
+                icon_button("dp_prev", { kind = "plain", icon = "chevron_left", on_click = function() shift(-1) end, props = { align_v = "center" } }),
+                icon_button("dp_next", { kind = "plain", icon = "chevron_right", on_click = function() shift(1) end, props = { align_v = "center" } }),
             },
         },
         row { children = weekdays },
@@ -261,7 +261,7 @@ local function date_layer(id)
     end
     local input_col = column { width = "fill", padding = { left = 12, right = 12, top = 16, bottom = 12 }, children = { fields } }
     local toggle = icon_button("dp_mode", {
-        kind = "standard",
+        kind = "plain",
         icon = typing:map(function(on) return on and "calendar_today" or "edit" end),
         on_click = function()
             local t = draft:get() or {}
@@ -337,15 +337,29 @@ function M.open_date_picker(opts)
     overlay.open(opts.docked and "date_docked" or "date", nil, opts.window)
 end
 
--- The docked picker's field.
+-- A day as the shared `{ year, month, day }`, and as the picker's yyyymmdd range.
+---@class m3.Date
+---@field year integer
+---@field month integer 1..12
+---@field day integer
+
+local function range_of(date)
+    return date and date.year and { a = date.year * 10000 + date.month * 100 + date.day } or {}
+end
+
+-- The docked picker's field. A single day takes and gives `m3.Date`, as `glass.date_picker` does; with
+-- `range` the value stays the native `m3.DateRange`.
 ---@class m3.DatePickerOpts
----@field label? string
----@field value? StateSignal<m3.DateRange> Default own, empty.
----@field range? boolean Pick two days.
+---@field label? string|Signal<string>
+---@field name? string Accessible name; default the label.
+---@field value? StateSignal<m3.Date|false>|StateSignal<m3.DateRange> Default own, empty. With `range`, an `m3.DateRange`.
+---@field range? boolean Pick two days; `value` and `on_change` then use `m3.DateRange`.
 ---@field kind? "outlined"|"filled"
 ---@field container? string|Signal<string> Colour behind an outlined field.
 ---@field width? number Default 280.
----@field on_change? fun(t: m3.DateRange) After OK.
+---@field disabled? boolean|Signal<boolean>
+---@field window? string The window or panel the picker opens over; default `core.window`.
+---@field on_change? fun(value: m3.Date|m3.DateRange) After OK.
 ---@field [string] "no such property"
 
 ---@param id string
@@ -353,18 +367,38 @@ end
 ---@return Node
 function M.date_picker(id, opts)
     opts = opts or {}
-    local value = opts.value or state("m3_date_" .. id, {})
+    local range = opts.range
+    local value = opts.value or state("m3_date_" .. id, range and {} or false)
+    local draft = state("m3_date_draft_" .. id, {})
     local anchor = geometry("m3_date_" .. id)
+    local function open()
+        local picked = value
+        local on_change = opts.on_change
+        if not range then
+            draft:set(range_of(value:get()))
+            picked = draft
+            on_change = function(t)
+                local date = t.a and { year = t.a // 10000, month = t.a // 100 % 100, day = t.a % 100 } or false
+                value:set(date)
+                if opts.on_change then
+                    opts.on_change(date --[[@as any]])
+                end
+            end
+        end
+        M.open_date_picker({ docked = true, anchor = anchor, value = picked, range = range, on_change = on_change, window = opts.window })
+    end
     return (text_field(id, {
         kind = opts.kind,
         label = opts.label,
+        name = opts.name,
         container = opts.container,
         width = opts.width or 280,
-        display = value:map(function(t) return describe(t, "") end),
+        disabled = opts.disabled,
+        display = value:map(function(t) return describe(range and t or range_of(t), "") end),
         trailing = "calendar_today",
         geometry = anchor,
         active = overlay.is_open("date_docked"),
-        on_click = function() M.open_date_picker({ docked = true, anchor = anchor, value = value, range = opts.range, on_change = opts.on_change }) end,
+        on_click = open,
     }))
 end
 

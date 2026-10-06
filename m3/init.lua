@@ -8,6 +8,8 @@ local window = require("m3.window")
 return {
     theme = require("m3.theme"),
     overlay = require("m3.overlay"),
+    notify = require("m3.overlay").notify,
+    open_dialog = require("m3.overlay").open_dialog,
     shapes = require("m3.shapes"),
     core = require("m3.core"),
     -- Window (window.lua)
@@ -30,14 +32,14 @@ return {
     fab_menu = require("m3.actions.fab").fab_menu,
     button_group = require("m3.actions.button_group").button_group,
     split_button = require("m3.actions.split_button").split_button,
-    segmented_button = require("m3.actions.segmented_button").segmented_button,
+    segmented_control = require("m3.actions.segmented_control").segmented_control,
     -- Communication (communication/)
     badge = require("m3.communication.badge").badge,
     badged = require("m3.communication.badge").badged,
-    linear_progress = require("m3.communication.progress").linear_progress,
-    circular_progress = require("m3.communication.progress").circular_progress,
-    loading_indicator = require("m3.communication.loading_indicator").loading_indicator,
-    shape = require("m3.communication.loading_indicator").shape,
+    progress_bar = require("m3.communication.progress").progress_bar,
+    progress_ring = require("m3.communication.progress").progress_ring,
+    spinner = require("m3.communication.spinner").spinner,
+    shape = require("m3.communication.spinner").shape,
     tooltip = require("m3.communication.tooltip").tooltip,
     rich_tooltip = require("m3.communication.tooltip").rich_tooltip,
     -- Containment (containment/)
@@ -47,6 +49,8 @@ return {
     list = require("m3.containment.list").list,
     card = require("m3.containment.card").card,
     carousel = require("m3.containment.carousel").carousel,
+    open_popover = require("m3.containment.sheet").open_popover,
+    open_sheet = require("m3.containment.sheet").open_sheet,
     open_bottom_sheet = require("m3.containment.sheet").open_bottom_sheet,
     open_side_sheet = require("m3.containment.sheet").open_side_sheet,
     open_fullscreen_dialog = require("m3.containment.sheet").open_fullscreen_dialog,
@@ -75,7 +79,7 @@ return {
     suggestion_chips = require("m3.selection.chips").suggestion_chips,
     slider = require("m3.selection.slider").slider,
     open_menu = require("m3.selection.menu").open_menu,
-    menu_open = require("m3.selection.menu").menu_open,
+    is_menu_open = require("m3.selection.menu").is_menu_open,
     context_menu = require("m3.selection.menu").context_menu,
     bind_shortcuts = require("m3.selection.menu").bind_shortcuts,
     menu_highlighted = require("m3.selection.menu").highlighted,
@@ -89,5 +93,6 @@ return {
     text_field = require("m3.inputs.text_field").text_field,
     edit_click = require("m3.inputs.text_field").edit_click, -- right-click Edit menu helper
     open_search_view = require("m3.inputs.search").open_search_view,
+    search_field = require("m3.inputs.search").search_field,
     search_bar = require("m3.inputs.search").search_bar,
 }

@@ -143,7 +143,7 @@ function M.rich_tooltip(id, opts)
                 rect {
                     margin = { top = 10, left = -12 },
                     children = {
-                        button(id .. "_action", { kind = "text", label = opts.action, on_click = function()
+                        button(id .. "_action", { kind = "plain", label = opts.action, on_click = function()
                             overlay.hide_tip(id)
                             if opts.on_action then
                                 opts.on_action()

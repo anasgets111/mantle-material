@@ -3,7 +3,7 @@ local m3 = require("m3")
 local section = require("demo.section")
 
 local c, FADE = m3.theme.c, m3.theme.motion.fade
-local notify = m3.overlay.notify
+local notify = m3.notify
 
 local function detail(description)
     return m3.text(description, c.on_surface_variant, "body_medium", { wrap = "word", width = "fill" })
@@ -46,7 +46,7 @@ local function destination(icon_name, label, selected, badge_id, count)
     }
 end
 
--- A static snackbar mock-up; the live one is m3.overlay.notify.
+-- A static snackbar mock-up; the live one is m3.notify.
 local function snackbar(message, action, close, two_line)
     local kids = { m3.text(message, c.inverse_on_surface, "body_medium", { width = "fill", wrap = "word" }) }
     if action then
@@ -134,8 +134,8 @@ local badges = section.card("Badges", {
             labelled("Count", row {
                 spacing = 8,
                 children = {
-                    m3.button("badge_add", { kind = "tonal", label = "Add", icon = "add", on_click = function() mail:set(mail:get() + 1) end }),
-                    m3.button("badge_clear", { kind = "text", label = "Clear", on_click = function() mail:set(0) end }),
+                    m3.button("badge_add", { kind = "secondary", label = "Add", icon = "add", on_click = function() mail:set(mail:get() + 1) end }),
+                    m3.button("badge_clear", { kind = "plain", label = "Clear", on_click = function() mail:set(0) end }),
                 },
             }),
         },
@@ -169,7 +169,7 @@ local progress = section.card("Progress indicators", {
     row {
         spacing = 16,
         children = {
-            column { align_v = "end", children = { m3.button("prog_run", { label = "Animate 0 to 100%", icon = "play_arrow", on_click = run }) } },
+            column { align_v = "end", children = { m3.button("prog_run", { kind = "primary", label = "Animate 0 to 100%", icon = "play_arrow", on_click = run }) } },
             m3.slider("prog_slider", { value = prog, width = 280 }),
             m3.text(prog:map(function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end), c.on_surface, "label_large", { align_v = "end", margin = { bottom = 14 } }),
         },
@@ -180,18 +180,18 @@ local progress = section.card("Progress indicators", {
             column {
                 spacing = 20,
                 children = {
-                    labelled("Linear determinate", m3.linear_progress("lin", { value = prog, width = W })),
-                    labelled("Linear indeterminate", m3.linear_progress("lin_ind", { indeterminate = true, width = W })),
-                    labelled("Linear wavy", m3.linear_progress("lin_wavy", { value = prog, wavy = true, width = W })),
+                    labelled("Linear determinate", m3.progress_bar("lin", { value = prog, width = W })),
+                    labelled("Linear indeterminate", m3.progress_bar("lin_ind", { indeterminate = true, width = W })),
+                    labelled("Linear wavy", m3.progress_bar("lin_wavy", { value = prog, wavy = true, width = W })),
                 },
             },
             row {
                 spacing = 32,
                 children = {
-                    labelled("Circular", m3.circular_progress("circ", { value = prog })),
-                    labelled("Circular indeterminate", m3.circular_progress("circ_ind", { indeterminate = true })),
-                    labelled("Circular wavy", m3.circular_progress("circ_wavy", { value = prog, wavy = true })),
-                    labelled("Wavy indeterminate", m3.circular_progress("circ_wavy_ind", { indeterminate = true, wavy = true })),
+                    labelled("Circular", m3.progress_ring("circ", { value = prog })),
+                    labelled("Circular indeterminate", m3.progress_ring("circ_ind", { indeterminate = true })),
+                    labelled("Circular wavy", m3.progress_ring("circ_wavy", { value = prog, wavy = true })),
+                    labelled("Wavy indeterminate", m3.progress_ring("circ_wavy_ind", { indeterminate = true, wavy = true })),
                 },
             },
         },
@@ -205,8 +205,8 @@ local loading = section.card("Loading indicator", {
     row {
         spacing = 48,
         children = {
-            labelled("Uncontained", m3.loading_indicator("load")),
-            labelled("Contained", m3.loading_indicator("load_c", { contained = true })),
+            labelled("Uncontained", m3.spinner("load")),
+            labelled("Contained", m3.spinner("load_c", { contained = true })),
         },
     },
 })
@@ -247,15 +247,15 @@ local snackbar = section.card("Snackbar", {
                 spacing = 12,
                 children = {
                     caption("Live, at the bottom of the window"),
-                    m3.button("snack_show", { kind = "tonal", label = "Show snackbar", on_click = function() notify("Message archived") end }),
+                    m3.button("snack_show", { kind = "secondary", label = "Show snackbar", on_click = function() notify { title = "Message archived" } end }),
                     caption("Three at once: each waits for the one before"),
                     m3.button("snack_queue", {
-                        kind = "tonal",
+                        kind = "secondary",
                         label = "Queue three",
                         on_click = function()
-                            notify("First message")
-                            notify("Second message, after the first", { action = "Undo" })
-                            notify("Third message, last", { close = true })
+                            notify { title = "First message" }
+                            notify { title = "Second message, after the first", action = "Undo" }
+                            notify { title = "Third message, last", close = true }
                         end,
                     }),
                 },
@@ -272,15 +272,15 @@ local tooltips = section.card("Tooltips", {
         spacing = 24,
         margin = { top = 72 },
         children = {
-            m3.tooltip("tip_edit", { label = "Edit", child = m3.icon_button("tip_edit_btn", { icon = "edit", on_click = function() notify("Edit") end }) }),
-            m3.tooltip("tip_share", { label = "Share", child = m3.icon_button("tip_share_btn", { kind = "tonal", icon = "share", on_click = function() notify("Share") end }) }),
-            m3.tooltip("tip_delete", { label = "Delete", child = m3.icon_button("tip_delete_btn", { kind = "outlined", icon = "delete", on_click = function() notify("Delete") end }) }),
+            m3.tooltip("tip_edit", { label = "Edit", child = m3.icon_button("tip_edit_btn", { icon = "edit", on_click = function() notify { title = "Edit" } end }) }),
+            m3.tooltip("tip_share", { label = "Share", child = m3.icon_button("tip_share_btn", { kind = "secondary", icon = "share", on_click = function() notify { title = "Share" } end }) }),
+            m3.tooltip("tip_delete", { label = "Delete", child = m3.icon_button("tip_delete_btn", { kind = "outlined", icon = "delete", on_click = function() notify { title = "Delete" } end }) }),
             m3.rich_tooltip("tip_info", {
-                child = m3.icon_button("tip_info_btn", { kind = "filled", icon = "info", on_click = function() notify("Info") end }),
+                child = m3.icon_button("tip_info_btn", { kind = "primary", icon = "info", on_click = function() notify { title = "Info" } end }),
                 title = "Offline mode",
                 body = "Download maps and documents to keep using them without a connection.",
                 action = "Learn more",
-                on_action = function() notify("Learn more") end,
+                on_action = function() notify { title = "Learn more" } end,
             }),
         },
     },

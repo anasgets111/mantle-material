@@ -10,6 +10,9 @@ local c, FADE, easing, CLEAR = theme.c, theme.motion.fade, theme.easing, theme.C
 
 local M = {}
 
+-- The constant false signal a `list` row gets for `emphasized` and `selected` without selection.
+local OFF = theme.scheme:map(function() return false end)
+
 local MOVE = { duration = 400, easing = easing.emphasized_decelerate }
 
 -- Segment corners: the list's ends round to 16, the corners between segments to 4.
@@ -164,11 +167,13 @@ end
 
 -- A scrolling keyed list with move / enter / exit animation.
 ---@class m3.ListOpts
----@field source Signal<any[]> Entries. Required.
----@field query? Signal<string> Filters `source` by fuzzy match on `search`, best match first (source order breaks ties).
----@field search? fun(entry: any): string The text `query` matches. Required with `query`.
----@field key fun(entry: any): string Stable identity for move and exit. Required.
----@field item fun(entry: any): Node Usually a `list_item` with `animated`. Required.
+---@field items any[]|Signal<any[]> The items. Required.
+---@field query? Signal<string> Filters `items` by fuzzy match on `search`, best match first (item order breaks ties).
+---@field search? fun(item: any): string The text `query` matches. Required with `query`.
+---@field key? fun(item: any): string Stable identity for move, exit and `value`; default the item's `label`, else `tostring`.
+---@field row fun(item: any, emphasized: Signal<boolean>, selected: Signal<boolean>): Node Usually a `list_item` with `animated`. Required. Both signals follow `value` (this list has no inactive look, so they match), and stay false without `value` or `on_select`.
+---@field value? StateSignal<string> The selected key; with `value` or `on_select` a click on a row selects it, tinted `secondary_container`. Leave the row's own `on_click` unset.
+---@field on_select? fun(item: any) After a click selects an item.
 ---@field height? number|"fill"
 ---@field width? number|"fill" Default "fill".
 ---@field [string] "no such property"
@@ -177,9 +182,13 @@ end
 ---@param opts m3.ListOpts
 ---@return Node
 function M.list(id, opts)
-    local source = opts.source
+    local items = opts.items
     if opts.query then
-        source = computed({ source, opts.query }, function(entries, q)
+        if type(items) ~= "userdata" then
+            local fixed = items
+            items = theme.scheme:map(function() return fixed end)
+        end
+        items = computed({ items, opts.query }, function(entries, q)
             local hits = {}
             for i, entry in ipairs(entries or {}) do
                 local score = fuzzy(opts.search(entry), q or "")
@@ -199,14 +208,37 @@ function M.list(id, opts)
             return hits
         end)
     end
+    local key = opts.key or function(item) return type(item) == "table" and item.label or tostring(item) end
+    local selectable = opts.value or opts.on_select
     return list {
         width = opts.width or "fill",
         height = opts.height,
         scroll = scroll("m3_" .. id),
         animate = { scroll = theme.motion.scroll },
-        source = source,
-        key = opts.key,
-        itemfn = opts.item,
+        source = items,
+        key = key,
+        itemfn = function(item)
+            if not selectable then
+                return opts.row(item, OFF, OFF)
+            end
+            local k = key(item)
+            local selected = opts.value and opts.value:map(function(v) return v == k end) or OFF
+            return interactive("list_" .. id .. "_" .. k, {
+                width = "fill",
+                radius = 12,
+                background = computed({ selected, theme.scheme }, function(on, s) return on and s.secondary_container or CLEAR end),
+                opacity = 1,
+                animate = { move = MOVE, opacity = { duration = 200, from = 0 }, exit = { duration = 150, opacity = 0 } },
+                on_click = function()
+                    if opts.value then
+                        opts.value:set(k)
+                    end
+                    if opts.on_select then
+                        opts.on_select(item)
+                    end
+                end,
+            }, c.on_surface, opts.row(item, selected, selected))
+        end,
     }
 end
 
